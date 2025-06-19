@@ -1,0 +1,41 @@
+# GhostWin Configuration File
+
+[iso]
+wim_index = "Microsoft Windows Setup (amd64)"
+# mount_path = "C:\\temp\\WIMMount"  # Optional: custom mount path
+# adk_path = "C:\\Program Files (x86)\\Windows Kits\\10\\Assessment and Deployment Kit"
+
+[winpe]
+packages = [
+    "WinPE-WMI",
+    "WinPE-NetFX", 
+    "WinPE-Scripting",
+    "WinPE-PowerShell",
+    "WinPE-StorageWMI",
+    "WinPE-DismCmdlets"
+]
+disable_dpi_scaling = true
+set_resolution = "1024x768"
+
+[tools]
+folders = [
+    "tools/system", 
+    "tools/hardware", 
+    "tools/network", 
+    "tools/drivers",
+    "tools/remote_access",
+    "tools/nirsoft", 
+    "tools/install", 
+    "tools/media",
+    "pe_autorun", 
+    "scripts/basic",
+    "scripts/advanced"
+]
+auto_detect = true
+
+[security]
+# password_hash = ""  # SHA-256 hash of access password
+# access_secret = ""  # Secret for challenge-response auth
+vnc_enabled = true
+vnc_port = 5950
+vnc_password = "vncwatch"

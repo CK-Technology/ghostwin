@@ -1,3 +1,22 @@
+# Ignore build and temp artifacts
 /target
 Cargo.lock
 **/*.rs.bk
+
+# Ignore ISO and binary artifacts
+*.exe
+*.msi
+*.dll
+*.zip
+*.iso
+*.bat
+*.ps1
+
+# Ignore resource and automation folders
+tools/**
+pe_autorun/**
+resources/**
+
+# Added by Cargo (already handled above, but preserved for clarity)
+/target
+

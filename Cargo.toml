@@ -1,0 +1,30 @@
+[package]
+name = "ghostwin"
+version = "0.1.0"
+edition = "2021"
+authors = ["Resolve Technology"]
+description = "Modern Windows deployment toolkit with WinPE integration"
+license = "MIT"
+
+[[bin]]
+name = "ghostwin"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tempfile = "3.8"
+walkdir = "2.4"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "handleapi"] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
