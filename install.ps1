@@ -151,14 +151,12 @@ function Configure-RustEnvironment {
 [net]
 retry = 5
 offline = false
-check-revoke = false
 
 [http]
 timeout = 600
 low-speed-limit = 1024
 low-speed-time = 30
 multiplexing = false
-ssl-version = "tlsv1.2"
 
 [build]
 jobs = 2
