@@ -66,6 +66,29 @@ function Test-Command($cmdname) {
     return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue)
 }
 
+# Function to clean up deprecated Cargo configurations
+function Remove-DeprecatedCargoConfig {
+    param([string]$cargoHome)
+    
+    try {
+        # Remove deprecated config directory (old format)
+        $deprecatedConfigDir = "$cargoHome\config"
+        if (Test-Path $deprecatedConfigDir) {
+            Write-Host "   Cleaning deprecated config directory..." -ForegroundColor Gray
+            Remove-Item $deprecatedConfigDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Remove old config file if it exists in root (very old format)
+        $oldConfigFile = "$cargoHome\config"
+        if (Test-Path $oldConfigFile -PathType Leaf) {
+            Write-Host "   Removing old config file..." -ForegroundColor Gray
+            Remove-Item $oldConfigFile -Force -ErrorAction SilentlyContinue
+        }
+    } catch {
+        # Ignore cleanup errors
+    }
+}
+
 # Function to fix common Cargo issues
 function Fix-CargoIssues {
     Write-Host "FIXING: Attempting to fix common Cargo issues..." -ForegroundColor Yellow
@@ -73,6 +96,9 @@ function Fix-CargoIssues {
     $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
     
     try {
+        # 0. Clean up any deprecated configurations first
+        Remove-DeprecatedCargoConfig -cargoHome $cargoHome
+        
         # 1. Clear potentially corrupted registry index
         $registryPath = "$cargoHome\registry"
         if (Test-Path $registryPath) {
@@ -88,12 +114,11 @@ function Fix-CargoIssues {
         }
         
         # 3. Create or update Cargo config with better network settings
-        $configDir = "$cargoHome\config"
-        if (-not (Test-Path $configDir)) {
-            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        if (-not (Test-Path $cargoHome)) {
+            New-Item -ItemType Directory -Path $cargoHome -Force | Out-Null
         }
         
-        $configFile = "$configDir\config.toml"
+        $configFile = "$cargoHome\config.toml"
         $configContent = @"
 [net]
 retry = 3
@@ -134,14 +159,16 @@ function Configure-RustEnvironment {
     $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
     
     try {
-        # 1. Create Cargo config directory if it doesn't exist
-        $configDir = "$cargoHome\config"
-        if (-not (Test-Path $configDir)) {
-            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        # 0. Clean up any deprecated configurations first
+        Remove-DeprecatedCargoConfig -cargoHome $cargoHome
+        
+        # 1. Ensure .cargo directory exists
+        if (-not (Test-Path $cargoHome)) {
+            New-Item -ItemType Directory -Path $cargoHome -Force | Out-Null
         }
         
-        # 2. Create comprehensive Cargo configuration
-        $configFile = "$configDir\config.toml"
+        # 2. Create modern Cargo configuration file (config.toml directly in .cargo)
+        $configFile = "$cargoHome\config.toml"
         $configContent = @"
 # Optimized Cargo configuration for Windows builds
 [net]
@@ -184,23 +211,43 @@ verbose = false              # Reduce noise in output
 color = "auto"               # Auto-detect color support
 "@
         
-        Write-Host "   Creating optimized Cargo configuration..." -ForegroundColor Gray
-        Set-Content -Path $configFile -Value $configContent -Force
+        Write-Host "   Creating modern Cargo configuration at: $configFile" -ForegroundColor Gray
+        
+        # Verify we can write to the cargo directory
+        if (-not (Test-Path $cargoHome -PathType Container)) {
+            Write-Host "   ERROR: Cannot access Cargo home directory: $cargoHome" -ForegroundColor Red
+            throw "Cargo home directory is not accessible"
+        }
+        
+        try {
+            Set-Content -Path $configFile -Value $configContent -Force -ErrorAction Stop
+            Write-Host "   Successfully created Cargo configuration" -ForegroundColor Gray
+        } catch {
+            Write-Host "   WARNING: Could not create Cargo config file: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "   Continuing without custom config (may be slower)" -ForegroundColor Gray
+        }
         
         # 3. Configure Git for optimal Cargo usage
         Write-Host "   Configuring Git for Cargo compatibility..." -ForegroundColor Gray
         
-        # Git network settings
-        & git config --global http.postBuffer 1048576000    # 1GB buffer for large repos
-        & git config --global http.lowSpeedLimit 1024       # 1KB/s minimum
-        & git config --global http.lowSpeedTime 30          # 30 second timeout
-        & git config --global http.sslVerify true           # Verify SSL certificates
-        & git config --global http.version HTTP/1.1         # Use HTTP/1.1 (more compatible)
-        
-        # Git performance settings
-        & git config --global core.preloadindex true        # Preload index for performance
-        & git config --global core.fscache true             # Enable filesystem cache on Windows
-        & git config --global gc.auto 256                   # Auto garbage collect less frequently
+        try {
+            # Git network settings
+            & git config --global http.postBuffer 1048576000    # 1GB buffer for large repos
+            & git config --global http.lowSpeedLimit 1024       # 1KB/s minimum
+            & git config --global http.lowSpeedTime 30          # 30 second timeout
+            & git config --global http.sslVerify true           # Verify SSL certificates
+            & git config --global http.version HTTP/1.1         # Use HTTP/1.1 (more compatible)
+            
+            # Git performance settings
+            & git config --global core.preloadindex true        # Preload index for performance
+            & git config --global core.fscache true             # Enable filesystem cache on Windows
+            & git config --global gc.auto 256                   # Auto garbage collect less frequently
+            
+            Write-Host "   Git configuration completed successfully" -ForegroundColor Gray
+        } catch {
+            Write-Host "   WARNING: Some Git configuration failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "   Continuing anyway (builds should still work)" -ForegroundColor Gray
+        }
         
         # 4. Set up environment variables for this session
         Write-Host "   Configuring environment variables..." -ForegroundColor Gray
@@ -261,7 +308,7 @@ color = "auto"               # Auto-detect color support
             & rustup component add rustfmt 2>$null | Out-Null   # Formatter
         }
         
-        # 7. Pre-warm Cargo cache with common dependencies
+        # 7. Pre-warm Cargo cache with common dependencies (optional)
         Write-Host "   Pre-warming Cargo cache with common dependencies..." -ForegroundColor Gray
         
         $tempProject = "$env:TEMP\cargo-warmup-$(Get-Random)"
@@ -281,15 +328,28 @@ serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.0", features = ["full"] }
 clap = { version = "4.0", features = ["derive"] }
 "@
-            Set-Content -Path "Cargo.toml" -Value $cargoToml
+            Set-Content -Path "Cargo.toml" -Value $cargoToml -ErrorAction Stop
             
-            # This will download and cache common dependencies
-            & cargo check --quiet 2>$null | Out-Null
+            # This will download and cache common dependencies (with timeout)
+            $warmupJob = Start-Job -ScriptBlock { 
+                param($projectPath)
+                Set-Location $projectPath
+                & cargo check --quiet 2>$null
+            } -ArgumentList $tempProject
+            
+            # Wait up to 60 seconds for pre-warming
+            if (Wait-Job $warmupJob -Timeout 60) {
+                Receive-Job $warmupJob | Out-Null
+                Write-Host "   Dependency cache pre-warmed successfully" -ForegroundColor Gray
+            } else {
+                Write-Host "   Pre-warming timed out (this is optional)" -ForegroundColor Gray
+            }
+            Remove-Job $warmupJob -Force -ErrorAction SilentlyContinue
             
         } catch {
-            # Ignore errors in pre-warming
+            Write-Host "   Pre-warming failed (this is optional): $($_.Exception.Message)" -ForegroundColor Gray
         } finally {
-            Pop-Location
+            Pop-Location -ErrorAction SilentlyContinue
             Remove-Item $tempProject -Recurse -Force -ErrorAction SilentlyContinue
         }
         
