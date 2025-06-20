@@ -16,7 +16,7 @@ use cli::*;
 #[derive(Parser)]
 #[command(name = "ghostwin")]
 #[command(about = "Modern Windows deployment toolkit with WinPE integration")]
-#[command(version = "0.2.0")]
+#[command(version = "0.3.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -35,6 +35,10 @@ enum Commands {
     Validate,
     /// Show detected tools and scripts
     Tools,
+    /// Run post-install logon scripts
+    Logon,
+    /// Run system setup tasks (before user logon)
+    SystemSetup,
 }
 
 #[tokio::main]
@@ -70,6 +74,14 @@ async fn main() -> Result<()> {
         Commands::Tools => {
             info!("Scanning for tools and scripts");
             cli::tools::execute().await?;
+        }
+        Commands::Logon => {
+            info!("Running post-install logon scripts");
+            cli::logon::execute().await?;
+        }
+        Commands::SystemSetup => {
+            info!("Running system setup tasks");
+            cli::system_setup::execute().await?;
         }
     }
 

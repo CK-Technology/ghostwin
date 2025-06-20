@@ -38,4 +38,4 @@ auto_detect = true
 # access_secret = ""  # Secret for challenge-response auth
 vnc_enabled = true
 vnc_port = 5950
-vnc_password = "vncwatch"
+# vnc_password = "CHANGE_ME_IN_PRODUCTION"

@@ -26,6 +26,10 @@ pub struct ToolDetector {
     config: ToolsConfig,
 }
 
+pub struct ToolManager {
+    config: ToolsConfig,
+}
+
 impl ToolDetector {
     pub fn new(config: &ToolsConfig) -> Self {
         Self {
@@ -229,6 +233,19 @@ impl ToolDetector {
         }
         
         Ok(options)
+    }
+}
+
+impl ToolManager {
+    pub fn new(config: &ToolsConfig) -> Self {
+        Self {
+            config: config.clone(),
+        }
+    }
+    
+    pub async fn scan_tools(&self) -> Result<Vec<DetectedTool>> {
+        let detector = ToolDetector::new(&self.config);
+        detector.detect_tools(".")
     }
 }
 

@@ -14,7 +14,7 @@
 **Just want it working RIGHT NOW?** Copy-paste this into PowerShell **as Administrator**:
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/yourusername/ghostwin/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 ```
 
 *That's it. Go grab a coffee while it installs. Come back in 5-10 minutes and you're done.*
@@ -45,7 +45,7 @@ Before we start, make sure you have:
 Copy this EXACT line and paste it into PowerShell:
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/yourusername/ghostwin/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 ```
 
 ### Step 3: Watch the Magic Happen
@@ -87,7 +87,7 @@ Pick your poison:
 
 **Option A: Git (if you have it)**
 ```powershell
-git clone https://github.com/yourusername/ghostwin.git
+git clone https://github.com/CK-Technology/ghostwin.git
 cd ghostwin
 ```
 
@@ -170,7 +170,7 @@ You should see: `ghostwin 0.1.0` or similar.
 
 ---
 
-## 🎭 Demo Mode: Impressing Your Boss
+## 🎭 Demo Mode
 
 ### The 5-Minute Demo Script
 

@@ -5,6 +5,8 @@ pub mod build;
 pub mod gui;
 pub mod validate;
 pub mod tools;
+pub mod logon;
+pub mod system_setup;
 
 #[derive(Args, Debug, Clone)]
 pub struct BuildArgs {

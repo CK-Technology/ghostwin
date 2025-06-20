@@ -1,7 +1,7 @@
 # GhostWin Setup Guide
 
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
-[![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=flat-square&logo=automattic)](https://github.com/yourusername/ghostwin)
+[![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=flat-square&logo=automattic)](https://github.com/CK-Technology/ghostwin)
 
 **Complete setup and deployment guide for GhostWin**
 

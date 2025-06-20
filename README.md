@@ -2,8 +2,8 @@
 
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![Rust](https://img.shields.io/badge/Language-Rust-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=for-the-badge&logo=automattic&logoColor=white)](https://github.com/ghostkellz/ghostwin)
-[![WinPE](https://img.shields.io/badge/WindowsPE-Powered-FF6B35?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ghostkellz/ghostwin)
+[![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=for-the-badge&logo=automattic&logoColor=white)](https://github.com/CK-Technology/ghostwin)
+[![WinPE](https://img.shields.io/badge/WindowsPE-Powered-FF6B35?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/CK-Technology/ghostwin)
 
 ![GhostWin Screenshot](assets/ghostwin.png)
 
@@ -19,7 +19,7 @@ A modern, secure, and Rust-powered Windows deployment toolkit designed for IT pr
 
 ### One-Line Install (Windows)
 ```powershell
-iwr -useb https://raw.githubusercontent.com/ghostkellz/ghostwin/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 ```
 
 ### Launch GUI
@@ -81,7 +81,7 @@ ghostwin build --source-iso Windows11.iso --output-iso GhostWin.iso
 ### Automated Installation (Recommended)
 ```powershell
 # Run in PowerShell as Administrator
-iwr -useb https://raw.githubusercontent.com/ghostkellz/ghostwin/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 ```
 
 ### Manual Installation

@@ -17,6 +17,7 @@ impl ConfigManager {
                 .context("Failed to parse TOML configuration")?
         };
         
+        Self::validate_config(&config)?;
         Ok(config)
     }
     
@@ -49,6 +50,86 @@ impl ConfigManager {
     pub fn create_default_config<P: AsRef<Path>>(path: P) -> Result<()> {
         let config = GhostwinConfig::default();
         Self::save_to_file(&config, path)?;
+        Ok(())
+    }
+    
+    pub async fn load_config(config_path: Option<String>) -> Result<GhostwinConfig> {
+        match config_path {
+            Some(path) => Self::load_from_file(path),
+            None => Self::load_default(),
+        }
+    }
+    
+    fn validate_config(config: &GhostwinConfig) -> Result<()> {
+        // Validate WIM index format
+        if config.iso.wim_index.is_empty() {
+            return Err(anyhow::anyhow!("WIM index cannot be empty"));
+        }
+        
+        // Validate VNC port range
+        if config.security.vnc_port == 0 || config.security.vnc_port > 65535 {
+            return Err(anyhow::anyhow!("VNC port must be between 1 and 65535"));
+        }
+        
+        // Validate resolution format if specified
+        if let Some(ref resolution) = config.winpe.set_resolution {
+            if !resolution.contains('x') {
+                return Err(anyhow::anyhow!("Resolution must be in format 'WIDTHxHEIGHT' (e.g., '1024x768')"));
+            }
+            
+            let parts: Vec<&str> = resolution.split('x').collect();
+            if parts.len() != 2 {
+                return Err(anyhow::anyhow!("Invalid resolution format: {}", resolution));
+            }
+            
+            for part in parts {
+                if part.parse::<u32>().is_err() {
+                    return Err(anyhow::anyhow!("Invalid resolution value: {}", part));
+                }
+            }
+        }
+        
+        // Validate tool folder names
+        for folder in &config.tools.folders {
+            if folder.is_empty() {
+                return Err(anyhow::anyhow!("Tool folder name cannot be empty"));
+            }
+            
+            // Check for invalid characters
+            let invalid_chars = ['<', '>', ':', '"', '|', '?', '*'];
+            if folder.chars().any(|c| invalid_chars.contains(&c)) {
+                return Err(anyhow::anyhow!("Tool folder name contains invalid characters: {}", folder));
+            }
+        }
+        
+        // Validate password hash format if provided
+        if let Some(ref hash) = config.security.password_hash {
+            if !hash.is_empty() && hash.len() != 64 {
+                return Err(anyhow::anyhow!("Password hash must be a 64-character SHA-256 hash"));
+            }
+            
+            if !hash.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Err(anyhow::anyhow!("Password hash must contain only hexadecimal characters"));
+            }
+        }
+        
+        // Validate VNC password if provided
+        if let Some(ref password) = config.security.vnc_password {
+            if password.len() < 6 {
+                return Err(anyhow::anyhow!("VNC password must be at least 6 characters long"));
+            }
+            if password.len() > 8 {
+                return Err(anyhow::anyhow!("VNC password must be no longer than 8 characters"));
+            }
+        }
+        
+        // Validate WinPE package names
+        for package in &config.winpe.packages {
+            if !package.starts_with("WinPE-") {
+                return Err(anyhow::anyhow!("Invalid WinPE package name: {}. Must start with 'WinPE-'", package));
+            }
+        }
+        
         Ok(())
     }
 }

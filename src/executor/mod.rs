@@ -64,6 +64,25 @@ impl ScriptExecutor {
         Ok(results)
     }
     
+    pub async fn execute_script(&self, script_path: &Path) -> Result<String> {
+        let path_str = script_path.to_string_lossy();
+        let extension = script_path.extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        
+        let result = match extension.as_str() {
+            "exe" | "com" => self.execute_executable(&path_str)?,
+            "bat" | "cmd" => self.execute_batch_script(&path_str)?,
+            "ps1" => self.execute_powershell_script(&path_str)?,
+            "reg" => self.execute_registry_file(&path_str)?,
+            "vbs" => self.execute_vbscript(&path_str)?,
+            _ => return Err(anyhow::anyhow!("Unsupported file type: {}", extension)),
+        };
+        
+        Ok(result.stdout)
+    }
+    
     fn execute_executable(&self, path: &str) -> Result<ExecutionResult> {
         debug!("Executing executable: {}", path);
         

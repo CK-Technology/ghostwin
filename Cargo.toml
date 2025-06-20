@@ -1,6 +1,6 @@
 [package]
 name = "ghostwin"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["CK Technology LLC"]
 description = "Resolve's Modern Windows deployment toolkit with WinPE integration"

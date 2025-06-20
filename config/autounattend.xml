@@ -19,7 +19,7 @@
 				<Username>Administrator</Username>
 				<Password>
 					<PlainText>true</PlainText>
-					<Value>1234</Value>
+					<Value></Value>
 				</Password>
 			</AutoLogon>
 			<OOBE>
@@ -33,7 +33,7 @@
 			<UserAccounts>
 				<AdministratorPassword>
 					<PlainText>true</PlainText>
-					<Value>1234</Value>
+					<Value></Value>
 				</AdministratorPassword>
 				<LocalAccounts>
 					<LocalAccount wcm:action="add">
@@ -41,15 +41,15 @@
 						<Name>Administrator</Name>
 						<Password>
 							<PlainText>true</PlainText>
-							<Value>1234</Value>
+							<Value></Value>
 						</Password>
 					</LocalAccount>
 				</LocalAccounts>
 			</UserAccounts>
 			<LogonCommands>
 				<AsynchronousCommand wcm:action="add">
-					<CommandLine>powershell -ep bypass -f C:\Temp\Helper\.Autorun.ps1</CommandLine>
-					<Description>Start Logon Scripts</Description>
+					<CommandLine>C:\Helper\ghostwin.exe logon</CommandLine>
+					<Description>Run GhostWin Post-Install Tasks</Description>
 					<Order>1</Order>
 				</AsynchronousCommand>
 			</LogonCommands>
@@ -66,7 +66,7 @@
 				</RunSynchronousCommand>
 				<RunSynchronousCommand wcm:action="add">
 					<Order>2</Order>
-					<Path>powershell -ep bypass -f C:\Temp\Helper\.Autorun.ps1 system</Path>
+					<Path>C:\Helper\ghostwin.exe system-setup</Path>
 				</RunSynchronousCommand>
 			</RunSynchronous>
 		</component>
