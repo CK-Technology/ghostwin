@@ -1,9 +1,9 @@
 [package]
 name = "ghostwin"
-version = "0.1.0"
-edition = "2021"
-authors = ["Resolve Technology"]
-description = "Modern Windows deployment toolkit with WinPE integration"
+version = "0.2.0"
+edition = "2024"
+authors = ["CK Technology LLC"]
+description = "Resolve's Modern Windows deployment toolkit with WinPE integration"
 license = "MIT"
 
 [[bin]]

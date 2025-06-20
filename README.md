@@ -5,8 +5,6 @@
 [![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=for-the-badge&logo=automattic&logoColor=white)](https://github.com/ghostkellz/ghostwin)
 [![Deployment](https://img.shields.io/badge/Deployment-Toolkit-FF6B35?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/ghostkellz/ghostwin)
 
-![GhostWin Screenshot](assets/ghostwin.png)
-
 **GhostWin** is a modern, secure, and Rust-powered Windows deployment toolkit designed for IT professionals. Built with simplicity, automation, and powerful customization in mind, GhostWin provides a fast and reliable interface for building custom Windows installer images with embedded scripts, tools, and user-driven options.
 
 > ✅ Built for **Resolve Technology** in collaboration with **Christopher Kelley**
