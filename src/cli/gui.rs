@@ -53,32 +53,34 @@ pub async fn execute() -> Result<()> {
     // Set up callbacks
     let ui_weak = ui.as_weak();
     ui.on_start_normal_install(move || {
-        let ui = ui_weak.unwrap();
-        ui.set_current_mode("install".into());
-        
-        // Start normal installation in background thread
-        thread::spawn(move || {
-            if let Err(e) = start_windows_installation(false, None, None) {
-                error!("Normal installation failed: {}", e);
-            }
-        });
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.set_current_mode("install".into());
+            
+            // Start normal installation in background thread
+            thread::spawn(move || {
+                if let Err(e) = start_windows_installation(false, None, None) {
+                    error!("Normal installation failed: {}", e);
+                }
+            });
+        }
     });
     
     let ui_weak = ui.as_weak();
     let executor_clone3 = script_executor.clone();
     let tools_clone3 = detected_tools.clone();
     ui.on_start_automated_install(move || {
-        let ui = ui_weak.unwrap();
-        ui.set_current_mode("install".into());
-        
-        // Start automated installation in background thread
-        let executor = executor_clone3.clone();
-        let tools = tools_clone3.clone();
-        thread::spawn(move || {
-            if let Err(e) = start_windows_installation(true, Some(executor), Some(tools)) {
-                error!("Automated installation failed: {}", e);
-            }
-        });
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.set_current_mode("install".into());
+            
+            // Start automated installation in background thread
+            let executor = executor_clone3.clone();
+            let tools = tools_clone3.clone();
+            thread::spawn(move || {
+                if let Err(e) = start_windows_installation(true, Some(executor), Some(tools)) {
+                    error!("Automated installation failed: {}", e);
+                }
+            });
+        }
     });
     
     let ui_weak = ui.as_weak();
@@ -138,29 +140,30 @@ pub async fn execute() -> Result<()> {
     let ui_weak = ui.as_weak();
     let vnc_manager_clone = vnc_manager.clone();
     ui.on_toggle_vnc(move || {
-        let ui = ui_weak.unwrap();
-        let mut vnc = vnc_manager_clone.lock().unwrap();
-        
-        if vnc.is_running() {
-            info!("Stopping VNC server");
-            if let Err(e) = vnc.stop_server() {
-                error!("Failed to stop VNC server: {}", e);
-                ui.set_vnc_status("Error".into());
-            } else {
-                ui.set_vnc_enabled(false);
-                ui.set_vnc_status("Disconnected".into());
-            }
-        } else {
-            info!("Starting VNC server");
-            match vnc.start_server() {
-                Ok(_) => {
-                    ui.set_vnc_enabled(true);
-                    let connection_info = vnc.get_connection_info();
-                    ui.set_vnc_status(format!("Connected ({})", connection_info.get_connection_string()).into());
-                }
-                Err(e) => {
-                    error!("Failed to start VNC server: {}", e);
-                    ui.set_vnc_status("Error".into());
+        if let Some(ui) = ui_weak.upgrade() {
+            if let Ok(mut vnc) = vnc_manager_clone.lock() {
+                if vnc.is_running() {
+                    info!("Stopping VNC server");
+                    if let Err(e) = vnc.stop_server() {
+                        error!("Failed to stop VNC server: {}", e);
+                        ui.set_vnc_status("Error".into());
+                    } else {
+                        ui.set_vnc_enabled(false);
+                        ui.set_vnc_status("Disconnected".into());
+                    }
+                } else {
+                    info!("Starting VNC server");
+                    match vnc.start_server() {
+                        Ok(_) => {
+                            ui.set_vnc_enabled(true);
+                            let connection_info = vnc.get_connection_info();
+                            ui.set_vnc_status(format!("Connected ({})", connection_info.get_connection_string()).into());
+                        }
+                        Err(e) => {
+                            error!("Failed to start VNC server: {}", e);
+                            ui.set_vnc_status("Error".into());
+                        }
+                    }
                 }
             }
         }
@@ -168,14 +171,16 @@ pub async fn execute() -> Result<()> {
     
     let ui_weak = ui.as_weak();
     ui.on_show_tools(move || {
-        let ui = ui_weak.unwrap();
-        ui.set_current_mode("tools".into());
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.set_current_mode("tools".into());
+        }
     });
     
     let ui_weak = ui.as_weak();
     ui.on_show_menu(move || {
-        let ui = ui_weak.unwrap();
-        ui.set_current_mode("menu".into());
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.set_current_mode("menu".into());
+        }
     });
     
     info!("Starting GUI main loop");

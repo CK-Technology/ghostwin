@@ -53,6 +53,9 @@ pub async fn execute() -> Result<()> {
 async fn apply_system_configurations() -> Result<()> {
     info!("Applying basic system configurations");
     
+    // Check and configure Windows PE and ADK for Windows 11 24H2
+    check_windows_pe_adk().await?;
+    
     // Enable Administrator account
     let output = std::process::Command::new("net")
         .args(["user", "Administrator", "/active:Yes"])
@@ -137,5 +140,82 @@ async fn configure_power_settings() -> Result<()> {
         .output();
     
     info!("Power settings configured for deployment");
+    Ok(())
+}
+
+async fn check_windows_pe_adk() -> Result<()> {
+    info!("Checking Windows PE and ADK for Windows 11 24H2");
+    
+    // Check for Windows ADK installation
+    let adk_path = Path::new(r"C:\Program Files (x86)\Windows Kits\10");
+    let pe_addon_path = Path::new(r"C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment");
+    
+    if adk_path.exists() {
+        info!("✅ Windows ADK found at: {}", adk_path.display());
+        
+        // Check for specific Windows 11 24H2 components
+        let winpe_path = adk_path.join("Assessment and Deployment Kit").join("Windows Preinstallation Environment");
+        let deployment_tools_path = adk_path.join("Assessment and Deployment Kit").join("Deployment Tools");
+        
+        if pe_addon_path.exists() || winpe_path.exists() {
+            info!("✅ Windows PE add-on found");
+            
+            // Check for DISM and other required tools
+            check_deployment_tools(&deployment_tools_path).await?;
+        } else {
+            warn!("⚠️ Windows PE add-on not found!");
+            warn!("   For Windows 11 24H2 deployment, please install:");
+            warn!("   1. Windows ADK for Windows 11, version 24H2");
+            warn!("   2. Windows PE add-on for the Windows ADK");
+            warn!("   Download from: https://docs.microsoft.com/en-us/windows-hardware/get-started/adk-install");
+        }
+    } else {
+        warn!("⚠️ Windows ADK not found!");
+        warn!("   Windows ADK is required for Windows 11 24H2 deployment");
+        warn!("   Please install both:");
+        warn!("   1. Windows ADK for Windows 11, version 24H2");
+        warn!("   2. Windows PE add-on for the Windows ADK");
+        warn!("   Download from: https://docs.microsoft.com/en-us/windows-hardware/get-started/adk-install");
+    }
+    
+    Ok(())
+}
+
+async fn check_deployment_tools(deployment_tools_path: &Path) -> Result<()> {
+    info!("Checking deployment tools");
+    
+    // Check for DISM
+    let dism_path = deployment_tools_path.join("amd64").join("DISM").join("dism.exe");
+    if dism_path.exists() {
+        info!("✅ DISM found at: {}", dism_path.display());
+        
+        // Test DISM functionality
+        let output = std::process::Command::new(&dism_path)
+            .args(["/Get-WimInfo", "/?"])
+            .output()?;
+            
+        if output.status.success() {
+            info!("✅ DISM is functional");
+        } else {
+            warn!("⚠️ DISM test failed: {}", String::from_utf8_lossy(&output.stderr));
+        }
+    } else {
+        warn!("⚠️ DISM not found in deployment tools");
+    }
+    
+    // Check for ImageX (legacy support)
+    let imagex_path = deployment_tools_path.join("amd64").join("imagex.exe");
+    if imagex_path.exists() {
+        info!("✅ ImageX found for legacy support");
+    }
+    
+    // Check for Windows PE tools
+    let winpe_tools_path = deployment_tools_path.join("amd64").join("Oscdimg");
+    if winpe_tools_path.exists() {
+        info!("✅ Windows PE creation tools found");
+    } else {
+        warn!("⚠️ Windows PE creation tools not found");
+    }
+    
     Ok(())
 }

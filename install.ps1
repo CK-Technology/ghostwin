@@ -41,6 +41,63 @@ function Test-Command($cmdname) {
     return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue)
 }
 
+# Check for Visual Studio Build Tools (required for Windows builds)
+Write-Host "🔧 Checking for Visual Studio Build Tools..." -ForegroundColor Yellow
+
+$vsBuildToolsPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$hasVSBuildTools = $false
+
+if (Test-Path $vsBuildToolsPath) {
+    try {
+        $vsInstallations = & $vsBuildToolsPath -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json 2>$null | ConvertFrom-Json
+        if ($vsInstallations -and $vsInstallations.Count -gt 0) {
+            $hasVSBuildTools = $true
+            Write-Host "✅ Visual Studio Build Tools with C++ support found!" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "   Failed to query Visual Studio installations: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+if (-not $hasVSBuildTools) {
+    Write-Host "⚠️  Visual Studio Build Tools with C++ support not found!" -ForegroundColor Red
+    Write-Host "   This is required for building Rust applications on Windows." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Please install one of the following:" -ForegroundColor Yellow
+    Write-Host "  1. Visual Studio Build Tools: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022" -ForegroundColor Gray
+    Write-Host "  2. Visual Studio Community: https://visualstudio.microsoft.com/vs/community/" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Make sure to include the 'C++ build tools' workload!" -ForegroundColor Red
+    
+    $continue = Read-Host "Continue anyway? Build will likely fail (y/N)"
+    if ($continue -ne "y" -and $continue -ne "Y") {
+        exit 1
+    }
+}
+
+# Check for Windows PE and ADK (Windows 11 24H2)
+Write-Host "🔧 Checking for Windows PE and ADK..." -ForegroundColor Yellow
+
+$adkPath = "${env:ProgramFiles(x86)}\Windows Kits\10"
+$peAddonPath = "${env:ProgramFiles(x86)}\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment"
+
+if (Test-Path $adkPath) {
+    Write-Host "✅ Windows ADK found at: $adkPath" -ForegroundColor Green
+    
+    if (Test-Path $peAddonPath) {
+        Write-Host "✅ Windows PE add-on found!" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  Windows PE add-on not found!" -ForegroundColor Yellow
+        Write-Host "   Download from: https://docs.microsoft.com/en-us/windows-hardware/get-started/adk-install" -ForegroundColor Gray
+    }
+} else {
+    Write-Host "⚠️  Windows ADK not found!" -ForegroundColor Yellow
+    Write-Host "   For Windows 11 24H2 deployment, install:" -ForegroundColor Gray
+    Write-Host "   1. Windows ADK for Windows 11, version 24H2" -ForegroundColor Gray
+    Write-Host "   2. Windows PE add-on for the Windows ADK" -ForegroundColor Gray
+    Write-Host "   Download from: https://docs.microsoft.com/en-us/windows-hardware/get-started/adk-install" -ForegroundColor Gray
+}
+
 # Install Rust if not present
 if (-not $SkipRust) {
     Write-Host "🔧 Checking for Rust installation..." -ForegroundColor Yellow
@@ -110,14 +167,19 @@ Push-Location $InstallPath
 
 try {
     Write-Host "   Running cargo build --release (this may take several minutes)..." -ForegroundColor Gray
-    cargo build --release
+    $buildResult = cargo build --release 2>&1
     
-    if (Test-Path "target\release\ghostwin.exe") {
+    if ($LASTEXITCODE -eq 0 -and (Test-Path "target\release\ghostwin.exe")) {
         Write-Host "✅ GhostWin built successfully!" -ForegroundColor Green
     } else {
         Write-Host "❌ Build failed!" -ForegroundColor Red
+        Write-Host "Build output:" -ForegroundColor Yellow
+        Write-Host $buildResult -ForegroundColor Gray
         exit 1
     }
+} catch {
+    Write-Host "❌ Build process failed: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
 } finally {
     Pop-Location
 }
@@ -133,7 +195,16 @@ if ($addToPath -eq "y" -or $addToPath -eq "Y") {
 
 # Validate installation
 Write-Host "🔍 Validating installation..." -ForegroundColor Yellow
-& "$InstallPath\target\release\ghostwin.exe" validate
+try {
+    & "$InstallPath\target\release\ghostwin.exe" validate
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ Installation validation passed!" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️ Installation validation had warnings" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "⚠️ Could not validate installation: $($_.Exception.Message)" -ForegroundColor Yellow
+}
 
 Write-Host ""
 Write-Host "🎉 GhostWin Installation Complete!" -ForegroundColor Green
