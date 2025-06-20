@@ -1,22 +1,38 @@
-# GhostWin
+# GhostWin 👻
 
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![Rust](https://img.shields.io/badge/Language-Rust-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=for-the-badge&logo=automattic&logoColor=white)](https://github.com/ghostkellz/ghostwin)
 [![Deployment](https://img.shields.io/badge/Deployment-Toolkit-FF6B35?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/ghostkellz/ghostwin)
 
-**GhostWin** is a modern, secure, and Rust-powered Windows deployment toolkit designed for IT professionals. Built with simplicity, automation, and powerful customization in mind, GhostWin provides a fast and reliable interface for building custom Windows installer images with embedded scripts, tools, and user-driven options.
-
-> ✅ Built for **Resolve Technology** in collaboration with **Christopher Kelley**
 ![GhostWin Screenshot](assets/ghostwin.png)
 
-**GhostWin** is a modern, secure, and Rust-powered Windows deployment toolkit designed for IT professionals. Built with simplicity, automation, and powerful customization in mind, GhostWin provides a fast and reliable interface for building custom Windows installer images with embedded scripts, tools, and user-driven options.
+**GhostWin is your Windows setup automation sidekick, no more hackery to make a local Windows account - no account required!** 
 
-> ✅ Built for **Resolve Technology** in collaboration with \*\*Christopher Kelley \*\*stWin
+A modern, secure, and Rust-powered Windows deployment toolkit designed for IT professionals. Built with simplicity, automation, and powerful customization in mind, GhostWin provides a fast and reliable interface for building custom Windows installer images with embedded scripts, tools, and user-driven options.
 
-**GhostWin** is a modern, secure, and Rust-powered Windows deployment toolkit designed for IT professionals. Built with simplicity, automation, and powerful customization in mind, GhostWin provides a fast and reliable interface for building custom Windows installer images with embedded scripts, tools, and user-driven options.
+> ✅ Built for **Resolve Technology** in collaboration with **Christopher Kelley**
 
-> ✅ Built for **Resolve Technology** in collaboration with \*\*Christopher Kelley \*\*
+---
+
+## 🚀 Quick Start
+
+### One-Line Install (Windows)
+```powershell
+iwr -useb https://raw.githubusercontent.com/ghostkellz/ghostwin/main/install.ps1 | iex
+```
+
+### Launch GUI
+```bash
+ghostwin gui
+```
+
+### Build Custom ISO
+```bash
+ghostwin build --source-iso Windows11.iso --output-iso GhostWin.iso
+```
+
+**📖 Need detailed setup instructions?** Check out [GUNPOWDER.md](GUNPOWDER.md) for a step-by-step guide with personality!
 
 ---
 
@@ -31,17 +47,50 @@
 
 ---
 
-## 🛠️ Planned Features
+## ✨ Key Features
 
-| Feature                   | Status         | Notes                                       |
-| ------------------------- | -------------- | ------------------------------------------- |
-| Build custom WinPE ISOs   | 🟨 In Progress | Clean Rust CLI instead of batch scripts     |
-| Integrate scripts & tools | 🟩 Done        | Folder-based detection (`/Tools`, `/Logon`) |
-| GUI frontend in WinPE     | � Done        | Slint-based native GUI with dark theme      |
-| VNC & remote access       | � Done        | TightVNC integration and status display     |
-| Driver injection          | 🟨 Planned     | `PEAutoRun/Drivers/` detection              |
-| Logon script selector     | 🟨 In Progress | With background/system context flags        |
-| `ghostwin build` CLI tool | 🟨 In Progress | Replaces `Build.bat` completely             |
+🎨 **Modern GUI Interface**
+- Professional dark ocean blue theme optimized for WinPE environments
+- Intuitive tool management with organized system and automation sections
+- Real-time status displays and deployment progress tracking
+
+🔧 **Powerful Automation**
+- One-click deployment modes: Normal and Automated installation
+- Integrated script execution for registry tweaks and system configuration
+- Auto-detection and organization of tools across multiple directories
+
+🌐 **Remote Access Ready**
+- Built-in VNC server with connection management
+- Secure remote assistance capabilities for complex deployments
+- Real-time connectivity status and controls
+
+⚡ **Performance & Reliability**
+- Rust-native implementation for speed and memory safety
+- Minimal dependencies optimized for WinPE environments
+- Robust error handling and recovery mechanisms
+
+---
+
+## 🚀 Installation
+
+### Prerequisites
+- **Windows 10/11** with Administrator privileges
+- **20GB+ free disk space** for ISO building
+- **Internet connection** for dependency downloads
+
+### Automated Installation (Recommended)
+```powershell
+# Run in PowerShell as Administrator
+iwr -useb https://raw.githubusercontent.com/ghostkellz/ghostwin/main/install.ps1 | iex
+```
+
+### Manual Installation
+1. **Install Rust**: Download from [rustup.rs](https://rustup.rs/)
+2. **Clone Repository**: `git clone https://github.com/ghostkellz/ghostwin.git`
+3. **Build Project**: `cargo build --release`
+4. **Verify**: `./target/release/ghostwin.exe --version`
+
+**📖 Detailed Setup Guide**: Check [GUNPOWDER.md](GUNPOWDER.md) for step-by-step instructions!
 
 ---
 
@@ -121,6 +170,20 @@ ghostwin/
 
 ---
 
+## 🗺️ Development Roadmap
+
+| Feature                   | Status         | Notes                                       |
+| ------------------------- | -------------- | ------------------------------------------- |
+| Build custom WinPE ISOs   | 🟨 In Progress | Clean Rust CLI instead of batch scripts     |
+| Integrate scripts & tools | 🟩 Done        | Folder-based detection (`/Tools`, `/Logon`) |
+| GUI frontend in WinPE     | 🟩 Done        | Slint-based native GUI with dark theme      |
+| VNC & remote access       | 🟩 Done        | TightVNC integration and status display     |
+| Driver injection          | 🟨 Planned     | `PEAutoRun/Drivers/` detection              |
+| Logon script selector     | 🟨 In Progress | With background/system context flags        |
+| `ghostwin build` CLI tool | 🟨 In Progress | Replaces `Build.bat` completely             |
+
+---
+
 ## 📜 License
 
 MIT License — see LICENSE file.
@@ -134,9 +197,22 @@ MIT License — see LICENSE file.
 
 ---
 
-More soon at: [cktechnology.io](https://cktechnology.io) and [ghostkellz.sh](https://ghostkellz.sh)
+## 🔗 Links & Resources
+
+**📖 Documentation**
+- [Setup Guide (GUNPOWDER.md)](GUNPOWDER.md) - Step-by-step setup with personality
+- [Technical Documentation (DOCS.md)](DOCS.md) - Complete technical reference
+- [Command Reference (COMMANDS.md)](COMMANDS.md) - CLI command documentation
+
+**🌐 Online**
+- [CK Technology](https://cktechx.com) - Professional IT services
+- [GhostKellz](https://ghostkellz.sh) - Developer portfolio and tools
+
+**🛠️ Tools & Scripts**
+- [Tool Collection](tools/) - System utilities and diagnostic tools
+- [Automation Scripts](scripts/) - Deployment and configuration automation
+- [PE AutoRun](pe_autorun/) - Boot-time script execution
 
 ---
 
-> Want to automate wiping and staging machines at scale? GhostWin is your sidekick.
-
+> **GhostWin is your Windows setup automation sidekick, no more hackery to make a local Windows account - no account required!** 🚀
