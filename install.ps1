@@ -14,9 +14,9 @@ if ($Help) {
 GhostWin Installer
 
 This installer automatically handles all dependencies including:
-• Visual Studio Build Tools (for Windows compilation)
-• Rust toolchain (if compiling from source)
-• Windows ADK and PE add-on (via winget or manual download)
+- Visual Studio Build Tools (for Windows compilation)
+- Rust toolchain (if compiling from source)
+- Windows ADK and PE add-on (via winget or manual download)
 
 Usage:
   iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex                # Full install with dependency checks
@@ -32,22 +32,22 @@ Options:
   -Help          Show this help
 
 Dependencies handled automatically:
-• Uses winget for Windows ADK/PE installation (with manual fallback)
-• Checks for Visual Studio Build Tools
-• Installs Rust if needed (for source compilation)
+- Uses winget for Windows ADK/PE installation (with manual fallback)
+- Checks for Visual Studio Build Tools
+- Installs Rust if needed (for source compilation)
 "@
     exit 0
 }
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "🚀 GhostWin Installation Script" -ForegroundColor Cyan
-Write-Host "================================" -ForegroundColor Cyan
+Write-Host "*** GhostWin Installation Script ***" -ForegroundColor Cyan
+Write-Host "====================================" -ForegroundColor Cyan
 
 # Check if running as administrator
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Host "⚠️  This script requires Administrator privileges for optimal setup." -ForegroundColor Yellow
-    Write-Host "   Some features may not work without admin rights." -ForegroundColor Yellow
+    Write-Host "WARNING: This script requires Administrator privileges for optimal setup." -ForegroundColor Yellow
+    Write-Host "         Some features may not work without admin rights." -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -57,7 +57,7 @@ function Test-Command($cmdname) {
 }
 
 # Check for Visual Studio Build Tools (required for Windows builds)
-Write-Host "🔧 Checking for Visual Studio Build Tools..." -ForegroundColor Yellow
+Write-Host "Checking for Visual Studio Build Tools..." -ForegroundColor Yellow
 
 $vsBuildToolsPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $hasVSBuildTools = $false
@@ -67,7 +67,7 @@ if (Test-Path $vsBuildToolsPath) {
         $vsInstallations = & $vsBuildToolsPath -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json 2>$null | ConvertFrom-Json
         if ($vsInstallations -and $vsInstallations.Count -gt 0) {
             $hasVSBuildTools = $true
-            Write-Host "✅ Visual Studio Build Tools with C++ support found!" -ForegroundColor Green
+            Write-Host "SUCCESS: Visual Studio Build Tools with C++ support found!" -ForegroundColor Green
         }
     } catch {
         Write-Host "   Failed to query Visual Studio installations: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -75,7 +75,7 @@ if (Test-Path $vsBuildToolsPath) {
 }
 
 if (-not $hasVSBuildTools) {
-    Write-Host "⚠️  Visual Studio Build Tools with C++ support not found!" -ForegroundColor Red
+    Write-Host "WARNING: Visual Studio Build Tools with C++ support not found!" -ForegroundColor Red
     Write-Host "   This is required for building Rust applications on Windows." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Options:" -ForegroundColor Yellow
@@ -87,7 +87,7 @@ if (-not $hasVSBuildTools) {
     $installChoice = Read-Host "Choose option (1-3)"
     switch ($installChoice) {
         "1" {
-            Write-Host "📦 Downloading Visual Studio Build Tools..." -ForegroundColor Yellow
+            Write-Host "DOWNLOADING: Downloading Visual Studio Build Tools..." -ForegroundColor Yellow
             
             $buildToolsUrl = "https://aka.ms/vs/17/release/vs_buildtools.exe"
             $buildToolsPath = "$env:TEMP\vs_buildtools.exe"
@@ -110,18 +110,18 @@ if (-not $hasVSBuildTools) {
                 $process = Start-Process -FilePath $buildToolsPath -ArgumentList $installArgs -Wait -PassThru
                 
                 if ($process.ExitCode -eq 0) {
-                    Write-Host "✅ Visual Studio Build Tools installed successfully!" -ForegroundColor Green
+                    Write-Host "SUCCESS: Visual Studio Build Tools installed successfully!" -ForegroundColor Green
                     Remove-Item $buildToolsPath -Force -ErrorAction SilentlyContinue
                 } elseif ($process.ExitCode -eq 3010) {
-                    Write-Host "✅ Visual Studio Build Tools installed successfully!" -ForegroundColor Green
+                    Write-Host "SUCCESS: Visual Studio Build Tools installed successfully!" -ForegroundColor Green
                     Write-Host "   Note: A reboot may be required for full functionality." -ForegroundColor Yellow
                     Remove-Item $buildToolsPath -Force -ErrorAction SilentlyContinue
                 } else {
-                    Write-Host "⚠️  Build Tools installation may have had issues (exit code: $($process.ExitCode))" -ForegroundColor Yellow
+                    Write-Host "WARNING:  Build Tools installation may have had issues (exit code: $($process.ExitCode))" -ForegroundColor Yellow
                     Write-Host "   Continuing anyway - Rust installation will verify if tools are working." -ForegroundColor Gray
                 }
             } catch {
-                Write-Host "❌ Failed to download/install Build Tools: $($_.Exception.Message)" -ForegroundColor Red
+                Write-Host "ERROR: Failed to download/install Build Tools: $($_.Exception.Message)" -ForegroundColor Red
                 Write-Host ""
                 Write-Host "Options:" -ForegroundColor Yellow
                 Write-Host "  1. Use pre-built GhostWin binaries (no compilation needed)" -ForegroundColor Green
@@ -132,7 +132,7 @@ if (-not $hasVSBuildTools) {
                 $fallbackChoice = Read-Host "Choose option (1-3)"
                 switch ($fallbackChoice) {
                     "1" {
-                        Write-Host "📦 Switching to pre-built binary installation..." -ForegroundColor Cyan
+                        Write-Host "DOWNLOADING: Switching to pre-built binary installation..." -ForegroundColor Cyan
                         $PreBuilt = $true
                     }
                     "2" {
@@ -153,7 +153,7 @@ if (-not $hasVSBuildTools) {
             }
         }
         "2" {
-            Write-Host "📦 Switching to pre-built binary installation..." -ForegroundColor Cyan
+            Write-Host "DOWNLOADING: Switching to pre-built binary installation..." -ForegroundColor Cyan
             $PreBuilt = $true
         }
         "3" {
@@ -170,7 +170,7 @@ if (-not $hasVSBuildTools) {
 }
 
 # Check for Windows PE and ADK (Windows 11 24H2)
-Write-Host "🔧 Checking for Windows PE and ADK..." -ForegroundColor Yellow
+Write-Host "CHECKING: Checking for Windows PE and ADK..." -ForegroundColor Yellow
 
 $adkPath = "${env:ProgramFiles(x86)}\Windows Kits\10"
 $peAddonPath = "${env:ProgramFiles(x86)}\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment"
@@ -183,14 +183,14 @@ function Install-ADKComponents {
     $hasWinget = Test-Command "winget"
     
     if ($hasWinget) {
-        Write-Host "🎯 Using winget for installation (recommended method)..." -ForegroundColor Green
+        Write-Host "USING: Using winget for installation (recommended method)..." -ForegroundColor Green
         
         try {
             if (-not $hasADK) {
-                Write-Host "📦 Installing Windows ADK via winget..." -ForegroundColor Yellow
+                Write-Host "DOWNLOADING: Installing Windows ADK via winget..." -ForegroundColor Yellow
                 winget install -e --id Microsoft.WindowsADK --silent --accept-package-agreements --accept-source-agreements
                 if ($LASTEXITCODE -eq 0) {
-                    Write-Host "✅ Windows ADK installed successfully!" -ForegroundColor Green
+                    Write-Host "SUCCESS: Windows ADK installed successfully!" -ForegroundColor Green
                     $hasADK = $true
                 } else {
                     throw "Winget installation failed"
@@ -198,10 +198,10 @@ function Install-ADKComponents {
             }
             
             if (-not $hasPEAddon) {
-                Write-Host "📦 Installing Windows PE add-on via winget..." -ForegroundColor Yellow
+                Write-Host "DOWNLOADING: Installing Windows PE add-on via winget..." -ForegroundColor Yellow
                 winget install -e --id Microsoft.ADKPEAddon --silent --accept-package-agreements --accept-source-agreements
                 if ($LASTEXITCODE -eq 0) {
-                    Write-Host "✅ Windows PE add-on installed successfully!" -ForegroundColor Green
+                    Write-Host "SUCCESS: Windows PE add-on installed successfully!" -ForegroundColor Green
                     $hasPEAddon = $true
                 } else {
                     throw "Winget installation failed"
@@ -211,18 +211,18 @@ function Install-ADKComponents {
             return $true
         }
         catch {
-            Write-Host "⚠️  Winget installation failed. Falling back to manual download..." -ForegroundColor Yellow
+            Write-Host "WARNING:  Winget installation failed. Falling back to manual download..." -ForegroundColor Yellow
             return $false
         }
     } else {
-        Write-Host "⚠️  Winget not available. Using manual download method..." -ForegroundColor Yellow
+        Write-Host "WARNING:  Winget not available. Using manual download method..." -ForegroundColor Yellow
         return $false
     }
 }
 
 # Function for manual download fallback
 function Install-ADKManual {
-    Write-Host "📦 Manual installation method..." -ForegroundColor Yellow
+    Write-Host "DOWNLOADING: Manual installation method..." -ForegroundColor Yellow
     
     if (-not $hasADK) {
         Write-Host "   Opening ADK download: https://go.microsoft.com/fwlink/?linkid=2289980" -ForegroundColor Gray
@@ -235,7 +235,7 @@ function Install-ADKManual {
     }
     
     Write-Host ""
-    Write-Host "🔧 Installation Instructions:" -ForegroundColor Cyan
+    Write-Host "CHECKING: Installation Instructions:" -ForegroundColor Cyan
     Write-Host "   1. Install Windows ADK first (if needed)" -ForegroundColor Gray
     Write-Host "   2. Then install Windows PE add-on (if needed)" -ForegroundColor Gray
     Write-Host "   3. Both installers are now downloading to your Downloads folder" -ForegroundColor Gray
@@ -245,10 +245,10 @@ function Install-ADKManual {
 }
 
 if ($hasADK -and $hasPEAddon) {
-    Write-Host "✅ Windows ADK and PE add-on are already installed!" -ForegroundColor Green
+    Write-Host "SUCCESS: Windows ADK and PE add-on are already installed!" -ForegroundColor Green
 } elseif ($hasADK -and -not $hasPEAddon) {
-    Write-Host "✅ Windows ADK found at: $adkPath" -ForegroundColor Green
-    Write-Host "⚠️  Windows PE add-on not found!" -ForegroundColor Yellow
+    Write-Host "SUCCESS: Windows ADK found at: $adkPath" -ForegroundColor Green
+    Write-Host "WARNING:  Windows PE add-on not found!" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Options:" -ForegroundColor Yellow
     Write-Host "  1. Auto-install Windows PE add-on (Recommended)" -ForegroundColor Green
@@ -263,7 +263,7 @@ if ($hasADK -and $hasPEAddon) {
         }
     }
 } else {
-    Write-Host "⚠️  Windows ADK not found!" -ForegroundColor Yellow
+    Write-Host "WARNING:  Windows ADK not found!" -ForegroundColor Yellow
     Write-Host "   For Windows 11 24H2 deployment, you'll need both ADK and PE add-on." -ForegroundColor Gray
     Write-Host ""
     Write-Host "Options:" -ForegroundColor Yellow
@@ -278,7 +278,7 @@ if ($hasADK -and $hasPEAddon) {
             Install-ADKManual
         }
     } else {
-        Write-Host "⏭️  Skipping ADK setup. You can install later using:" -ForegroundColor Yellow
+        Write-Host "SKIPPING:  Skipping ADK setup. You can install later using:" -ForegroundColor Yellow
         Write-Host "   winget install -e --id Microsoft.WindowsADK" -ForegroundColor Gray
         Write-Host "   winget install -e --id Microsoft.ADKPEAddon" -ForegroundColor Gray
         Write-Host "   Or download manually:" -ForegroundColor Gray
@@ -290,34 +290,34 @@ if ($hasADK -and $hasPEAddon) {
 # Final verification
 if ($adkChoice -eq "1" -or $peChoice -eq "1") {
     Write-Host ""
-    Write-Host "🔍 Verifying installation..." -ForegroundColor Yellow
+    Write-Host "VERIFYING: Verifying installation..." -ForegroundColor Yellow
     
     # Refresh paths
     $hasADK = Test-Path $adkPath
     $hasPEAddon = Test-Path $peAddonPath
     
     if ($hasADK) {
-        Write-Host "✅ Windows ADK verified!" -ForegroundColor Green
+        Write-Host "SUCCESS: Windows ADK verified!" -ForegroundColor Green
     } else {
-        Write-Host "⚠️  Windows ADK not detected. Please ensure it's installed correctly." -ForegroundColor Yellow
+        Write-Host "WARNING:  Windows ADK not detected. Please ensure it's installed correctly." -ForegroundColor Yellow
     }
     
     if ($hasPEAddon) {
-        Write-Host "✅ Windows PE add-on verified!" -ForegroundColor Green
+        Write-Host "SUCCESS: Windows PE add-on verified!" -ForegroundColor Green
     } else {
-        Write-Host "⚠️  Windows PE add-on not detected. Please ensure it's installed correctly." -ForegroundColor Yellow
+        Write-Host "WARNING:  Windows PE add-on not detected. Please ensure it's installed correctly." -ForegroundColor Yellow
     }
 }
 
 # Install Rust if not present
 if (-not $SkipRust) {
-    Write-Host "🔧 Checking for Rust installation..." -ForegroundColor Yellow
+    Write-Host "CHECKING: Checking for Rust installation..." -ForegroundColor Yellow
     
     if (Test-Command "cargo") {
-        Write-Host "✅ Rust is already installed!" -ForegroundColor Green
+        Write-Host "SUCCESS: Rust is already installed!" -ForegroundColor Green
         cargo --version
     } else {
-        Write-Host "📦 Installing Rust..." -ForegroundColor Yellow
+        Write-Host "DOWNLOADING: Installing Rust..." -ForegroundColor Yellow
         
         # Download and run rustup-init
         $rustupUrl = "https://win.rustup.rs/x86_64"
@@ -333,16 +333,16 @@ if (-not $SkipRust) {
         $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
         
         if (Test-Command "cargo") {
-            Write-Host "✅ Rust installed successfully!" -ForegroundColor Green
+            Write-Host "SUCCESS: Rust installed successfully!" -ForegroundColor Green
         } else {
-            Write-Host "❌ Rust installation failed. Please install manually from https://rustup.rs/" -ForegroundColor Red
+            Write-Host "ERROR: Rust installation failed. Please install manually from https://rustup.rs/" -ForegroundColor Red
             exit 1
         }
     }
 }
 
 # Create installation directory
-Write-Host "📁 Creating installation directory: $InstallPath" -ForegroundColor Yellow
+Write-Host "CREATING: Creating installation directory: $InstallPath" -ForegroundColor Yellow
 if (Test-Path $InstallPath) {
     Write-Host "   Directory already exists, cleaning..." -ForegroundColor Gray
     Remove-Item "$InstallPath\*" -Recurse -Force -ErrorAction SilentlyContinue
@@ -371,14 +371,14 @@ if ($PreBuilt) {
                 Remove-Item $assetPath -Force
             }
             
-            Write-Host "✅ Pre-built binaries downloaded successfully!" -ForegroundColor Green
+            Write-Host "SUCCESS: Pre-built binaries downloaded successfully!" -ForegroundColor Green
         } else {
-            Write-Host "⚠️  No pre-built Windows binaries found in latest release." -ForegroundColor Yellow
+            Write-Host "WARNING:  No pre-built Windows binaries found in latest release." -ForegroundColor Yellow
             Write-Host "   Falling back to source compilation..." -ForegroundColor Gray
             $PreBuilt = $false
         }
     } catch {
-        Write-Host "⚠️  Failed to download pre-built binaries: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "WARNING:  Failed to download pre-built binaries: $($_.Exception.Message)" -ForegroundColor Yellow
         Write-Host "   Falling back to source compilation..." -ForegroundColor Gray
         $PreBuilt = $false
     }
@@ -407,9 +407,9 @@ if (-not $PreBuilt) {
         Move-Item "$env:TEMP\ghostwin-main\*" $InstallPath -Force
         Remove-Item "$env:TEMP\ghostwin-main" -Recurse -Force
         Remove-Item $zipPath -Force
-        Write-Host "   ✅ Download completed successfully!" -ForegroundColor Green
+        Write-Host "   SUCCESS: Download completed successfully!" -ForegroundColor Green
     } catch {
-        Write-Host "   ❌ Download failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "   ERROR: Download failed: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host "   Please check your internet connection and try again." -ForegroundColor Yellow
         exit 1
     }
@@ -425,23 +425,23 @@ if (-not $PreBuilt -and -not $SkipBuild) {
         $buildResult = cargo build --release 2>&1
         
         if ($LASTEXITCODE -eq 0 -and (Test-Path "target\release\ghostwin.exe")) {
-            Write-Host "✅ GhostWin built successfully!" -ForegroundColor Green
+            Write-Host "SUCCESS: GhostWin built successfully!" -ForegroundColor Green
         } else {
-            Write-Host "❌ Build failed!" -ForegroundColor Red
+            Write-Host "ERROR: Build failed!" -ForegroundColor Red
             Write-Host "Build output:" -ForegroundColor Yellow
             Write-Host $buildResult -ForegroundColor Gray
             exit 1
         }
     } catch {
-        Write-Host "❌ Build process failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "ERROR: Build process failed: $($_.Exception.Message)" -ForegroundColor Red
         exit 1
     } finally {
         Pop-Location
     }
 } elseif ($SkipBuild) {
-    Write-Host "⏭️  Skipping build process as requested." -ForegroundColor Yellow
+    Write-Host "SKIPPING:  Skipping build process as requested." -ForegroundColor Yellow
 } else {
-    Write-Host "✅ Using pre-built binaries, skipping compilation." -ForegroundColor Green
+    Write-Host "SUCCESS: Using pre-built binaries, skipping compilation." -ForegroundColor Green
 }
 
 # Find the executable path
@@ -462,7 +462,7 @@ if (Test-Path "$InstallPath\target\release\ghostwin.exe") {
 }
 
 if (-not $executablePath -or -not (Test-Path $executablePath)) {
-    Write-Host "⚠️  GhostWin executable not found after installation!" -ForegroundColor Yellow
+    Write-Host "WARNING:  GhostWin executable not found after installation!" -ForegroundColor Yellow
     Write-Host "   Please check the installation manually." -ForegroundColor Gray
 } else {
     # Add to PATH (optional)
@@ -472,27 +472,27 @@ if (-not $executablePath -or -not (Test-Path $executablePath)) {
         if ($currentPath -notlike "*$executableDir*") {
             $newPath = $currentPath + ";" + $executableDir
             [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
-            Write-Host "✅ Added to PATH. Restart your terminal to use 'ghostwin' command." -ForegroundColor Green
+            Write-Host "Added to PATH. Restart your terminal to use 'ghostwin' command." -ForegroundColor Green
         } else {
-            Write-Host "✅ Already in PATH." -ForegroundColor Green
+            Write-Host "Already in PATH." -ForegroundColor Green
         }
     }
 
     # Validate installation
-    Write-Host "🔍 Validating installation..." -ForegroundColor Yellow
+    Write-Host "VERIFYING: Validating installation..." -ForegroundColor Yellow
     try {
         & $executablePath validate
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Installation validation passed!" -ForegroundColor Green
+            Write-Host "Installation validation passed!" -ForegroundColor Green
         } else {
-            Write-Host "⚠️ Installation validation had warnings" -ForegroundColor Yellow
+            Write-Host "Installation validation had warnings" -ForegroundColor Yellow
         }
     } catch {
-        Write-Host "⚠️ Could not validate installation: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "Could not validate installation: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 
     Write-Host ""
-    Write-Host "🎉 GhostWin Installation Complete!" -ForegroundColor Green
+    Write-Host "GhostWin Installation Complete!" -ForegroundColor Green
     Write-Host "=================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "Location: $InstallPath" -ForegroundColor Cyan
@@ -504,5 +504,5 @@ if (-not $executablePath -or -not (Test-Path $executablePath)) {
     Write-Host ""
     Write-Host "For help: `"$executablePath`" --help" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Ready to deploy! 🚀" -ForegroundColor Green
+    Write-Host "Ready to deploy!" -ForegroundColor Green
 }
