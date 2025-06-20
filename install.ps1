@@ -169,9 +169,6 @@ split-debuginfo = "packed"
 [registries.crates-io]
 protocol = "sparse"
 
-[cargo-new]
-vcs = "none"
-
 [term]
 verbose = false
 color = "auto"
