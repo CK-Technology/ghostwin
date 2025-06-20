@@ -83,7 +83,6 @@ pub async fn execute() -> Result<()> {
         }
     });
     
-    let ui_weak = ui.as_weak();
     let executor_clone = script_executor.clone();
     let tools_clone = detected_tools.clone();
     ui.on_launch_tool(move |path| {
@@ -110,7 +109,6 @@ pub async fn execute() -> Result<()> {
         }
     });
     
-    let ui_weak = ui.as_weak();
     let executor_clone2 = script_executor.clone();
     let tools_clone2 = detected_tools.clone();
     ui.on_run_script(move |path| {

@@ -27,7 +27,7 @@ slint = "1.8"
 slint-build = "1.8"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "handleapi"] }
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "handleapi", "securitybaseapi", "winnt", "fileapi"] }
 
 [dev-dependencies]
 assert_cmd = "2.0"

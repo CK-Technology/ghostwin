@@ -56,7 +56,7 @@ pub fn get_free_disk_space(drive: &str) -> Result<u64> {
     let wide_path: Vec<u16> = OsStr::new(drive).encode_wide().chain(std::iter::once(0)).collect();
     
     unsafe {
-        let mut free_bytes = ULARGE_INTEGER { QuadPart: 0 };
+        let mut free_bytes = ULARGE_INTEGER::default();
         let result = GetDiskFreeSpaceExW(
             wide_path.as_ptr(),
             &mut free_bytes,
@@ -65,7 +65,7 @@ pub fn get_free_disk_space(drive: &str) -> Result<u64> {
         );
         
         if result != 0 {
-            Ok(free_bytes.QuadPart as u64)
+            Ok(*free_bytes.QuadPart() as u64)
         } else {
             Err(anyhow::anyhow!("Failed to get disk space for {}", drive))
         }

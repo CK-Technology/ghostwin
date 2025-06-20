@@ -161,7 +161,6 @@ impl ToolDetector {
         
         #[cfg(target_os = "windows")]
         {
-            use std::ffi::CString;
             use winapi::um::fileapi::GetLogicalDrives;
             
             let drives = unsafe { GetLogicalDrives() };

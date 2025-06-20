@@ -28,7 +28,7 @@ pub async fn execute() -> Result<()> {
     
     // Detect individual tools from current directory
     let tools = detector.detect_tools(".")?;
-    let mut total_tools = tools.len();
+    let total_tools = tools.len();
     
     if !tools.is_empty() {
         // Group tools by their containing directory for display
