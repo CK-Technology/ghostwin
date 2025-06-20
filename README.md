@@ -78,11 +78,33 @@ ghostwin build --source-iso Windows11.iso --output-iso GhostWin.iso
 - **20GB+ free disk space** for ISO building
 - **Internet connection** for dependency downloads
 
+### Dependencies (Automatically Handled)
+The installer automatically detects and installs required dependencies:
+- **🔧 Visual Studio Build Tools** — Required for Windows compilation
+- **🦀 Rust Toolchain** — For building from source (skippable with `-PreBuilt`)
+- **📦 Windows ADK** — Assessment and Deployment Kit (via `winget` or manual download)
+- **🔌 Windows PE Add-on** — Preinstallation Environment support (via `winget` or manual download)
+
+> **💡 Tip**: The installer uses `winget` as the primary method for ADK/PE installation with automatic fallback to manual downloads if `winget` is unavailable.
+
 ### Automated Installation (Recommended)
 ```powershell
-# Run in PowerShell as Administrator
+# Full installation with dependency handling
 iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
+
+# Quick install with pre-built binaries (faster)
+iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -PreBuilt
+
+# Custom installation path
+iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -InstallPath "C:\Tools\GhostWin"
 ```
+
+**🎯 Installation Features:**
+- 🤖 **Smart dependency detection** — Checks for all required components
+- 📦 **Winget integration** — Modern package management for ADK/PE installation
+- 🔄 **Automatic fallback** — Direct downloads if winget unavailable
+- ⚡ **Pre-built option** — Skip compilation for faster setup
+- 🛡️ **Error handling** — Clear guidance when issues occur
 
 ### Manual Installation
 1. **Install Rust**: Download from [rustup.rs](https://rustup.rs/)
