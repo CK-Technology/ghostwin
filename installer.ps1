@@ -126,6 +126,13 @@ function Configure-RustEnvironment {
         
         # 2. Create comprehensive Cargo configuration
         $configFile = "$cargoHome\config.toml"
+        
+        # Remove any existing config file first to ensure clean state
+        if (Test-Path $configFile) {
+            Write-Host "   Removing existing Cargo config to ensure clean state..." -ForegroundColor Gray
+            Remove-Item $configFile -Force -ErrorAction SilentlyContinue
+        }
+        
         $configContent = @"
 # Optimized Cargo configuration for Windows builds
 [net]
@@ -135,7 +142,6 @@ offline = false              # Allow network access
 [http]
 timeout = 600                # 10 minute timeout for large downloads
 low-speed-limit = 1024       # Minimum 1KB/s (fail if slower)
-low-speed-time = 30          # Allow slow speeds for up to 30 seconds
 multiplexing = false         # Disable HTTP/2 multiplexing (avoids some Windows issues)
 
 [build]

@@ -148,7 +148,6 @@ offline = false
 [http]
 timeout = 600
 low-speed-limit = 1024
-low-speed-time = 30
 multiplexing = false
 
 [build]
