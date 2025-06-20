@@ -16,7 +16,7 @@ use cli::*;
 #[derive(Parser)]
 #[command(name = "ghostwin")]
 #[command(about = "Modern Windows deployment toolkit with WinPE integration")]
-#[command(version = "0.1.0")]
+#[command(version = "0.2.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
