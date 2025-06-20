@@ -1,19 +1,17 @@
-# GhostWin One-Line Installer for Windows
-# Usage: iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
+# GhostWin One-Line Installer for Windows (Legacy with Full Dependencies)
+# Usage: iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/installerLegacy.sh | iex
 
 param(
     [switch]$SkipRust,
     [switch]$SkipBuild,
     [switch]$PreBuilt,
-    [switch]$FixCargo,
-    [switch]$SkipEnvConfig,
     [string]$InstallPath = "C:\ProgramData\CKTech\GhostWin",
     [switch]$Help
 )
 
 if ($Help) {
     Write-Host @"
-GhostWin Installer
+GhostWin Installer (Legacy with Full Dependencies)
 
 This installer automatically handles all dependencies including:
 - Visual Studio Build Tools (for Windows compilation)
@@ -21,19 +19,17 @@ This installer automatically handles all dependencies including:
 - Windows ADK and PE add-on (via winget or manual download)
 
 Usage:
-  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex                # Full install with dependency checks
-  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -PreBuilt      # Download pre-built binaries (faster)
-  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -SkipRust      # Skip Rust install
-  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -InstallPath "C:\Tools\GhostWin"
+  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/installerLegacy.sh | iex                # Full install with dependency checks
+  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/installerLegacy.sh | iex -PreBuilt      # Download pre-built binaries (faster)
+  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/installerLegacy.sh | iex -SkipRust      # Skip Rust install
+  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/installerLegacy.sh | iex -InstallPath "C:\Tools\GhostWin"
 
 Options:
-  -PreBuilt        Download pre-built binaries instead of compiling from source
-  -SkipRust        Skip Rust installation (if already installed)
-  -SkipBuild       Skip the build process (download source only)
-  -FixCargo        Reset Cargo configuration to fix index/network issues
-  -SkipEnvConfig   Skip automatic Rust/Cargo environment optimization
-  -InstallPath     Custom installation directory
-  -Help            Show this help
+  -PreBuilt      Download pre-built binaries instead of compiling from source
+  -SkipRust      Skip Rust installation (if already installed)
+  -SkipBuild     Skip the build process (download source only)
+  -InstallPath   Custom installation directory
+  -Help          Show this help
 
 Dependencies handled automatically:
 - Uses winget for Windows ADK/PE installation (with manual fallback)
@@ -45,205 +41,19 @@ Dependencies handled automatically:
 
 $ErrorActionPreference = "Stop"
 
-# Function to check if command exists
-function Test-Command($cmdname) {
-    return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue)
-}
-
-# Function to clean up deprecated Cargo configurations
-function Remove-DeprecatedCargoConfig {
-    param([string]$cargoHome)
-    
-    try {
-        # Remove deprecated config directory (old format)
-        $deprecatedConfigDir = "$cargoHome\config"
-        if (Test-Path $deprecatedConfigDir) {
-            Write-Host "   Cleaning deprecated config directory..." -ForegroundColor Gray
-            Remove-Item $deprecatedConfigDir -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        
-        # Remove old config file if it exists in root (very old format)
-        $oldConfigFile = "$cargoHome\config"
-        if (Test-Path $oldConfigFile -PathType Leaf) {
-            Write-Host "   Removing old config file..." -ForegroundColor Gray
-            Remove-Item $oldConfigFile -Force -ErrorAction SilentlyContinue
-        }
-    } catch {
-        # Ignore cleanup errors
-    }
-}
-
-# Function to fix common Cargo issues
-function Fix-CargoIssues {
-    Write-Host "FIXING: Attempting to fix common Cargo issues..." -ForegroundColor Yellow
-    
-    $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
-    
-    try {
-        # 0. Clean up any deprecated configurations first
-        Remove-DeprecatedCargoConfig -cargoHome $cargoHome
-        
-        # 1. Clear potentially corrupted registry index
-        $registryPath = "$cargoHome\registry"
-        if (Test-Path $registryPath) {
-            Write-Host "   Clearing Cargo registry cache..." -ForegroundColor Gray
-            Remove-Item $registryPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        
-        # 2. Clear git database cache
-        $gitPath = "$cargoHome\git"
-        if (Test-Path $gitPath) {
-            Write-Host "   Clearing Cargo git cache..." -ForegroundColor Gray
-            Remove-Item $gitPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        
-        # 3. Create or update Cargo config with better network settings
-        if (-not (Test-Path $cargoHome)) {
-            New-Item -ItemType Directory -Path $cargoHome -Force | Out-Null
-        }
-        
-        $configFile = "$cargoHome\config.toml"
-        $configContent = @"
-[net]
-retry = 3
-offline = false
-
-[http]
-timeout = 300
-low-speed-limit = 10
-multiplexing = false
-
-[build]
-jobs = 1  # Reduce parallel jobs to avoid overwhelming slow connections
-"@
-        
-        Write-Host "   Creating optimized Cargo configuration..." -ForegroundColor Gray
-        Set-Content -Path $configFile -Value $configContent -Force
-        
-        Write-Host "SUCCESS: Cargo configuration reset complete!" -ForegroundColor Green
-        Write-Host "   Try running the installer again without -FixCargo" -ForegroundColor Gray
-        
-    } catch {
-        Write-Host "WARNING: Some Cargo fixes failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "   Manual fix: Delete '$cargoHome' and reinstall Rust" -ForegroundColor Gray
-    }
-}
-
-# Function to configure optimal Rust/Cargo environment for Windows
-function Configure-RustEnvironment {
-    Write-Host "CONFIGURING: Setting up optimal Rust/Cargo environment for Windows..." -ForegroundColor Yellow
-    
-    $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
-    
-    try {
-        # 0. Clean up any deprecated configurations first
-        Remove-DeprecatedCargoConfig -cargoHome $cargoHome
-        
-        # 1. Ensure .cargo directory exists
-        if (-not (Test-Path $cargoHome)) {
-            New-Item -ItemType Directory -Path $cargoHome -Force | Out-Null
-        }
-        
-        # 2. Create modern Cargo configuration file (config.toml directly in .cargo)
-        $configFile = "$cargoHome\config.toml"
-        $configContent = @"
-# Optimized Cargo configuration for Windows builds
-[net]
-retry = 5
-offline = false
-check-revoke = false
-
-[http]
-timeout = 600
-low-speed-limit = 1024
-low-speed-time = 30
-multiplexing = false
-ssl-version = "tlsv1.2"
-
-[build]
-jobs = 2
-target-dir = "target"
-incremental = true
-
-[profile.release]
-opt-level = 2
-lto = "thin"
-codegen-units = 4
-panic = "abort"
-
-[profile.dev]
-opt-level = 0
-debug = true
-split-debuginfo = "packed"
-
-[registries.crates-io]
-protocol = "sparse"
-
-[cargo-new]
-vcs = "none"
-
-[term]
-verbose = false
-color = "auto"
-"@
-        
-        Write-Host "   Creating modern Cargo configuration at: $configFile" -ForegroundColor Gray
-        
-        try {
-            Set-Content -Path $configFile -Value $configContent -Force -ErrorAction Stop
-            Write-Host "   Successfully created Cargo configuration" -ForegroundColor Gray
-        } catch {
-            Write-Host "   WARNING: Could not create Cargo config file: $($_.Exception.Message)" -ForegroundColor Yellow
-            Write-Host "   Continuing without custom config (may be slower)" -ForegroundColor Gray
-        }
-        
-        # 3. Configure environment variables for this session
-        Write-Host "   Configuring environment variables..." -ForegroundColor Gray
-        
-        # Cargo environment variables
-        $env:CARGO_NET_RETRY = "5"
-        $env:CARGO_HTTP_TIMEOUT = "600"
-        $env:CARGO_HTTP_LOW_SPEED_LIMIT = "1024"
-        $env:CARGO_HTTP_MULTIPLEXING = "false"
-        $env:CARGO_INCREMENTAL = "1"
-        $env:CARGO_TARGET_DIR = "target"
-        
-        # Rust compilation variables
-        $env:RUSTFLAGS = "-C target-cpu=native"
-        $env:RUST_BACKTRACE = "1"
-        
-        # Windows-specific variables
-        $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = "link.exe"
-        
-        # Memory and performance settings
-        $logicalCores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
-        $optimalJobs = [Math]::Max(1, [Math]::Min($logicalCores, 4))
-        $env:CARGO_BUILD_JOBS = $optimalJobs.ToString()
-        
-        Write-Host "   Configured for $optimalJobs parallel build jobs" -ForegroundColor Gray
-        
-        Write-Host "SUCCESS: Rust/Cargo environment configured!" -ForegroundColor Green
-        
-    } catch {
-        Write-Host "WARNING: Some environment configuration failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "   Build should still work but may be slower" -ForegroundColor Gray
-    }
-}
-
-# Handle FixCargo option first
-if ($FixCargo) {
-    Fix-CargoIssues
-    exit 0
-}
-
-Write-Host "*** GhostWin Installation Script ***" -ForegroundColor Cyan
-Write-Host "====================================" -ForegroundColor Cyan
+Write-Host "*** GhostWin Installation Script (Legacy) ***" -ForegroundColor Cyan
+Write-Host "=============================================" -ForegroundColor Cyan
 
 # Check if running as administrator
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Host "WARNING: This script requires Administrator privileges for optimal setup." -ForegroundColor Yellow
     Write-Host "         Some features may not work without admin rights." -ForegroundColor Yellow
     Write-Host ""
+}
+
+# Function to check if command exists
+function Test-Command($cmdname) {
+    return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue)
 }
 
 # Check for Visual Studio Build Tools (required for Windows builds)
@@ -477,8 +287,8 @@ if ($hasADK -and $hasPEAddon) {
     }
 }
 
-# Final verification for ADK
-if (($adkChoice -eq "1") -or ($peChoice -eq "1")) {
+# Final verification
+if ($adkChoice -eq "1" -or $peChoice -eq "1") {
     Write-Host ""
     Write-Host "VERIFYING: Verifying installation..." -ForegroundColor Yellow
     
@@ -529,13 +339,6 @@ if (-not $SkipRust) {
             exit 1
         }
     }
-    
-    # Configure Rust environment for optimal Windows builds (unless skipped)
-    if (-not $SkipEnvConfig) {
-        Configure-RustEnvironment
-    } else {
-        Write-Host "SKIPPING: Rust environment configuration (as requested)" -ForegroundColor Yellow
-    }
 }
 
 # Create installation directory
@@ -582,7 +385,7 @@ if ($PreBuilt) {
 }
 
 if (-not $PreBuilt) {
-    # Download GhostWin source
+    # Clone or download GhostWin source
     Write-Host "Downloading GhostWin source..." -ForegroundColor Yellow
 
     # Download ZIP archive (most reliable method for Windows)
@@ -618,19 +421,28 @@ if (-not $PreBuilt -and -not $SkipBuild) {
     Push-Location $InstallPath
 
     try {
-        Write-Host "   Running: cargo build --release" -ForegroundColor Gray
+        Write-Host "   Running cargo build --release (this may take several minutes)..." -ForegroundColor Gray
+        Write-Host "   Note: First build may take longer as it downloads dependencies..." -ForegroundColor Gray
+        
+        # Set cargo to use more verbose output for debugging
+        $env:CARGO_TERM_VERBOSE = "true"
+        
+        # Run the build with better error capture
         $buildResult = & cargo build --release 2>&1
         
         if ($LASTEXITCODE -eq 0 -and (Test-Path "target\release\ghostwin.exe")) {
             Write-Host "SUCCESS: GhostWin built successfully!" -ForegroundColor Green
-            
-            # Verify the executable
-            $exeSize = (Get-Item "target\release\ghostwin.exe").Length
-            Write-Host "   Executable size: $([math]::Round($exeSize/1MB, 2)) MB" -ForegroundColor Gray
         } else {
             Write-Host "ERROR: Build failed!" -ForegroundColor Red
             Write-Host "Build output:" -ForegroundColor Yellow
             $buildResult | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+            
+            # Suggest common solutions
+            Write-Host ""
+            Write-Host "Common solutions:" -ForegroundColor Yellow
+            Write-Host "  1. Check internet connection (cargo needs to download dependencies)" -ForegroundColor Gray
+            Write-Host "  2. Try running with -PreBuilt flag to skip compilation" -ForegroundColor Gray
+            Write-Host "  3. Ensure you have sufficient disk space (build requires ~2GB)" -ForegroundColor Gray
             exit 1
         }
     } catch {
@@ -666,18 +478,44 @@ if (-not $executablePath -or -not (Test-Path $executablePath)) {
     Write-Host "WARNING:  GhostWin executable not found after installation!" -ForegroundColor Yellow
     Write-Host "   Please check the installation manually." -ForegroundColor Gray
 } else {
+    # Add to PATH (optional)
+    $addToPath = Read-Host "Add GhostWin to PATH? (y/N)"
+    if ($addToPath -eq "y" -or $addToPath -eq "Y") {
+        $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+        if ($currentPath -notlike "*$executableDir*") {
+            $newPath = $currentPath + ";" + $executableDir
+            [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+            Write-Host "Added to PATH. Restart your terminal to use 'ghostwin' command." -ForegroundColor Green
+        } else {
+            Write-Host "Already in PATH." -ForegroundColor Green
+        }
+    }
+
+    # Validate installation
+    Write-Host "VERIFYING: Validating installation..." -ForegroundColor Yellow
+    try {
+        & $executablePath validate
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Installation validation passed!" -ForegroundColor Green
+        } else {
+            Write-Host "Installation validation had warnings" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "Could not validate installation: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+
     Write-Host ""
-    Write-Host "*** GhostWin Installation Complete! ***" -ForegroundColor Green
-    Write-Host "=======================================" -ForegroundColor Green
+    Write-Host "GhostWin Installation Complete!" -ForegroundColor Green
+    Write-Host "=================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Installation Details:" -ForegroundColor Cyan
-    Write-Host "  Location: $InstallPath" -ForegroundColor Gray
-    Write-Host "  Executable: $executablePath" -ForegroundColor Gray
+    Write-Host "Location: $InstallPath" -ForegroundColor Cyan
+    Write-Host "Executable: $executablePath" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "Quick Start Commands:" -ForegroundColor Yellow
-    Write-Host "  Launch GUI:      `"$executablePath`" gui" -ForegroundColor White
-    Write-Host "  Build ISO:       `"$executablePath`" build --source-iso Windows11.iso" -ForegroundColor White
-    Write-Host "  Show Help:       `"$executablePath`" --help" -ForegroundColor White
+    Write-Host "Quick Start:" -ForegroundColor Yellow
+    Write-Host "  cd `"$InstallPath`"" -ForegroundColor Gray
+    Write-Host "  `"$executablePath`" gui" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Happy deploying!" -ForegroundColor Green
+    Write-Host "For help: `"$executablePath`" --help" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Ready to deploy!" -ForegroundColor Green
 }
