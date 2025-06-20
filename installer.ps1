@@ -80,14 +80,7 @@ function Fix-CargoIssues {
             Remove-Item $registryPath -Recurse -Force -ErrorAction SilentlyContinue
         }
         
-        # 2. Clear git database cache
-        $gitPath = "$cargoHome\git"
-        if (Test-Path $gitPath) {
-            Write-Host "   Clearing Cargo git cache..." -ForegroundColor Gray
-            Remove-Item $gitPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        
-        # 3. Create or update Cargo config with better network settings
+        # 2. Create or update Cargo config with better network settings
         if (-not (Test-Path $cargoHome)) {
             New-Item -ItemType Directory -Path $cargoHome -Force | Out-Null
         }
@@ -96,7 +89,6 @@ function Fix-CargoIssues {
         $configContent = @"
 [net]
 retry = 3
-git-fetch-with-cli = true
 offline = false
 
 [http]
@@ -110,12 +102,6 @@ jobs = 1  # Reduce parallel jobs to avoid overwhelming slow connections
         
         Write-Host "   Creating optimized Cargo configuration..." -ForegroundColor Gray
         Set-Content -Path $configFile -Value $configContent -Force
-        
-        # 4. Update Git configuration for Cargo
-        Write-Host "   Configuring Git for Cargo..." -ForegroundColor Gray
-        & git config --global http.postBuffer 524288000  # 500MB buffer
-        & git config --global http.lowSpeedLimit 0
-        & git config --global http.lowSpeedTime 999999
         
         Write-Host "SUCCESS: Cargo configuration reset complete!" -ForegroundColor Green
         Write-Host "   Try running the installer again without -FixCargo" -ForegroundColor Gray
@@ -144,16 +130,13 @@ function Configure-RustEnvironment {
 # Optimized Cargo configuration for Windows builds
 [net]
 retry = 5                    # Retry failed network operations up to 5 times
-git-fetch-with-cli = true    # Use system Git instead of libgit2 (more reliable on Windows)
 offline = false              # Allow network access
-check-revoke = false         # Skip certificate revocation checks (faster, corporate networks)
 
 [http]
 timeout = 600                # 10 minute timeout for large downloads
 low-speed-limit = 1024       # Minimum 1KB/s (fail if slower)
 low-speed-time = 30          # Allow slow speeds for up to 30 seconds
 multiplexing = false         # Disable HTTP/2 multiplexing (avoids some Windows issues)
-ssl-version = "tlsv1.2"      # Force TLS 1.2 for compatibility
 
 [build]
 jobs = 2                     # Limit parallel compilation jobs (reduces memory usage)
@@ -174,9 +157,6 @@ split-debuginfo = "packed"   # Keep debug info in single file on Windows
 [registries.crates-io]
 protocol = "sparse"          # Use sparse registry protocol (faster, less bandwidth)
 
-[cargo-new]
-vcs = "none"                 # Don't initialize git by default in new projects
-
 [term]
 verbose = false              # Reduce noise in output
 color = "auto"               # Auto-detect color support
@@ -185,26 +165,10 @@ color = "auto"               # Auto-detect color support
         Write-Host "   Creating optimized Cargo configuration..." -ForegroundColor Gray
         Set-Content -Path $configFile -Value $configContent -Force
         
-        # 3. Configure Git for optimal Cargo usage
-        Write-Host "   Configuring Git for Cargo compatibility..." -ForegroundColor Gray
-        
-        # Git network settings
-        & git config --global http.postBuffer 1048576000    # 1GB buffer for large repos
-        & git config --global http.lowSpeedLimit 1024       # 1KB/s minimum
-        & git config --global http.lowSpeedTime 30          # 30 second timeout
-        & git config --global http.sslVerify true           # Verify SSL certificates
-        & git config --global http.version HTTP/1.1         # Use HTTP/1.1 (more compatible)
-        
-        # Git performance settings
-        & git config --global core.preloadindex true        # Preload index for performance
-        & git config --global core.fscache true             # Enable filesystem cache on Windows
-        & git config --global gc.auto 256                   # Auto garbage collect less frequently
-        
-        # 4. Set up environment variables for this session
+        # 3. Set up environment variables for this session
         Write-Host "   Configuring environment variables..." -ForegroundColor Gray
         
         # Cargo environment variables
-        $env:CARGO_NET_GIT_FETCH_WITH_CLI = "true"
         $env:CARGO_NET_RETRY = "5"
         $env:CARGO_HTTP_TIMEOUT = "600"
         $env:CARGO_HTTP_LOW_SPEED_LIMIT = "1024"
@@ -296,7 +260,6 @@ clap = { version = "4.0", features = ["derive"] }
         Write-Host "   - Network retry and timeout settings" -ForegroundColor Gray
         Write-Host "   - Optimized compilation profiles" -ForegroundColor Gray
         Write-Host "   - Windows Defender exclusions (if admin)" -ForegroundColor Gray
-        Write-Host "   - Git compatibility settings" -ForegroundColor Gray
         Write-Host "   - Memory and CPU optimization" -ForegroundColor Gray
         
     } catch {

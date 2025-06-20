@@ -90,14 +90,7 @@ function Fix-CargoIssues {
             Remove-Item $registryPath -Recurse -Force -ErrorAction SilentlyContinue
         }
         
-        # 2. Clear git database cache
-        $gitPath = "$cargoHome\git"
-        if (Test-Path $gitPath) {
-            Write-Host "   Clearing Cargo git cache..." -ForegroundColor Gray
-            Remove-Item $gitPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        
-        # 3. Create or update Cargo config with better network settings
+        # 2. Create or update Cargo config with better network settings
         if (-not (Test-Path $cargoHome)) {
             New-Item -ItemType Directory -Path $cargoHome -Force | Out-Null
         }
