@@ -379,13 +379,8 @@ if (-not $PreBuilt) {
     # Clone or download GhostWin source
     Write-Host "⬇️  Downloading GhostWin source..." -ForegroundColor Yellow
 
-# Check if git is available
-if (Test-Command "git") {
-    Write-Host "   Using git to clone repository..." -ForegroundColor Gray
-    $parentPath = Split-Path $InstallPath -Parent
-    git clone https://github.com/CK-Technology/ghostwin.git $InstallPath
-} else {
-    Write-Host "   Git not found - downloading ZIP archive (this is normal)..." -ForegroundColor Gray
+    # Download ZIP archive (most reliable method for Windows)
+    Write-Host "   Downloading ZIP archive from GitHub..." -ForegroundColor Gray
     $zipUrl = "https://github.com/CK-Technology/ghostwin/archive/main.zip"
     $zipPath = "$env:TEMP\ghostwin.zip"
     
