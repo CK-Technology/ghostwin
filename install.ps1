@@ -351,7 +351,7 @@ if (Test-Path $InstallPath) {
 }
 
 if ($PreBuilt) {
-    Write-Host "⬇️  Downloading pre-built GhostWin binaries..." -ForegroundColor Yellow
+    Write-Host "DOWNLOADING: Downloading pre-built GhostWin binaries..." -ForegroundColor Yellow
     
     try {
         # Download the latest release
@@ -417,19 +417,32 @@ if (-not $PreBuilt) {
 
 # Build GhostWin (if not using pre-built and not skipping build)
 if (-not $PreBuilt -and -not $SkipBuild) {
-    Write-Host "🔨 Building GhostWin..." -ForegroundColor Yellow
+    Write-Host "BUILDING: Building GhostWin..." -ForegroundColor Yellow
     Push-Location $InstallPath
 
     try {
         Write-Host "   Running cargo build --release (this may take several minutes)..." -ForegroundColor Gray
-        $buildResult = cargo build --release 2>&1
+        Write-Host "   Note: First build may take longer as it downloads dependencies..." -ForegroundColor Gray
+        
+        # Set cargo to use more verbose output for debugging
+        $env:CARGO_TERM_VERBOSE = "true"
+        
+        # Run the build with better error capture
+        $buildResult = & cargo build --release 2>&1
         
         if ($LASTEXITCODE -eq 0 -and (Test-Path "target\release\ghostwin.exe")) {
             Write-Host "SUCCESS: GhostWin built successfully!" -ForegroundColor Green
         } else {
             Write-Host "ERROR: Build failed!" -ForegroundColor Red
             Write-Host "Build output:" -ForegroundColor Yellow
-            Write-Host $buildResult -ForegroundColor Gray
+            $buildResult | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+            
+            # Suggest common solutions
+            Write-Host ""
+            Write-Host "Common solutions:" -ForegroundColor Yellow
+            Write-Host "  1. Check internet connection (cargo needs to download dependencies)" -ForegroundColor Gray
+            Write-Host "  2. Try running with -PreBuilt flag to skip compilation" -ForegroundColor Gray
+            Write-Host "  3. Ensure you have sufficient disk space (build requires ~2GB)" -ForegroundColor Gray
             exit 1
         }
     } catch {
