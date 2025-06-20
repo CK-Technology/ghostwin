@@ -1,9 +1,9 @@
 # GhostWin One-Line Installer for Windows
-# Usage: iwr -useb https://raw.githubusercontent.com/yourusername/ghostwin/main/install.ps1 | iex
+# Usage: iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 
 param(
     [switch]$SkipRust,
-    [string]$InstallPath = "$env:USERPROFILE\GhostWin",
+    [string]$InstallPath = "C:\ProgramData\CKTech\GhostWin",
     [switch]$Help
 )
 
@@ -12,9 +12,9 @@ if ($Help) {
 GhostWin Installer
 
 Usage:
-  iwr -useb https://your-repo/install.ps1 | iex                # Full install
-  iwr -useb https://your-repo/install.ps1 | iex -SkipRust      # Skip Rust install
-  iwr -useb https://your-repo/install.ps1 | iex -InstallPath "C:\Tools\GhostWin"
+  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex                # Full install
+  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -SkipRust      # Skip Rust install
+  iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -InstallPath "C:\ProgramData\CKTech\GhostWin"
 
 Options:
   -SkipRust      Skip Rust installation (if already installed)
@@ -83,16 +83,25 @@ Write-Host "⬇️  Downloading GhostWin..." -ForegroundColor Yellow
 # Check if git is available
 if (Test-Command "git") {
     Write-Host "   Using git to clone repository..." -ForegroundColor Gray
-    git clone https://github.com/yourusername/ghostwin.git $InstallPath
+    $parentPath = Split-Path $InstallPath -Parent
+    git clone https://github.com/CK-Technology/ghostwin.git $InstallPath
 } else {
-    Write-Host "   Git not found, downloading ZIP..." -ForegroundColor Gray
-    $zipUrl = "https://github.com/yourusername/ghostwin/archive/main.zip"
+    Write-Host "   Git not found - downloading ZIP archive (this is normal)..." -ForegroundColor Gray
+    $zipUrl = "https://github.com/CK-Technology/ghostwin/archive/main.zip"
     $zipPath = "$env:TEMP\ghostwin.zip"
     
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
-    Expand-Archive -Path $zipPath -DestinationPath $env:TEMP -Force
-    Move-Item "$env:TEMP\ghostwin-main\*" $InstallPath -Force
-    Remove-Item "$env:TEMP\ghostwin-main" -Recurse -Force
+    try {
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+        Expand-Archive -Path $zipPath -DestinationPath $env:TEMP -Force
+        Move-Item "$env:TEMP\ghostwin-main\*" $InstallPath -Force
+        Remove-Item "$env:TEMP\ghostwin-main" -Recurse -Force
+        Remove-Item $zipPath -Force
+        Write-Host "   ✅ Download completed successfully!" -ForegroundColor Green
+    } catch {
+        Write-Host "   ❌ Download failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "   Please check your internet connection and try again." -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 # Build GhostWin
