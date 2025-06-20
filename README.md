@@ -1,9 +1,9 @@
 # GhostWin 👻
 
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![Rust](https://img.shields.io/badge/Language-Rust-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Language-Rust-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=for-the-badge&logo=automattic&logoColor=white)](https://github.com/ghostkellz/ghostwin)
-[![Deployment](https://img.shields.io/badge/Deployment-Toolkit-FF6B35?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/ghostkellz/ghostwin)
+[![WinPE](https://img.shields.io/badge/WindowsPE-Powered-FF6B35?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ghostkellz/ghostwin)
 
 ![GhostWin Screenshot](assets/ghostwin.png)
 
