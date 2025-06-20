@@ -112,6 +112,10 @@ if (-not $hasVSBuildTools) {
                 if ($process.ExitCode -eq 0) {
                     Write-Host "✅ Visual Studio Build Tools installed successfully!" -ForegroundColor Green
                     Remove-Item $buildToolsPath -Force -ErrorAction SilentlyContinue
+                } elseif ($process.ExitCode -eq 3010) {
+                    Write-Host "✅ Visual Studio Build Tools installed successfully!" -ForegroundColor Green
+                    Write-Host "   Note: A reboot may be required for full functionality." -ForegroundColor Yellow
+                    Remove-Item $buildToolsPath -Force -ErrorAction SilentlyContinue
                 } else {
                     Write-Host "⚠️  Build Tools installation may have had issues (exit code: $($process.ExitCode))" -ForegroundColor Yellow
                     Write-Host "   Continuing anyway - Rust installation will verify if tools are working." -ForegroundColor Gray
@@ -339,7 +343,12 @@ if (-not $SkipRust) {
 
 # Create installation directory
 Write-Host "📁 Creating installation directory: $InstallPath" -ForegroundColor Yellow
-New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
+if (Test-Path $InstallPath) {
+    Write-Host "   Directory already exists, cleaning..." -ForegroundColor Gray
+    Remove-Item "$InstallPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+} else {
+    New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
+}
 
 if ($PreBuilt) {
     Write-Host "⬇️  Downloading pre-built GhostWin binaries..." -ForegroundColor Yellow
@@ -385,6 +394,14 @@ if (-not $PreBuilt) {
     $zipPath = "$env:TEMP\ghostwin.zip"
     
     try {
+        # Clean up any existing temp files
+        if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path "$env:TEMP\ghostwin-main") {
+            Remove-Item "$env:TEMP\ghostwin-main" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
         Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
         Expand-Archive -Path $zipPath -DestinationPath $env:TEMP -Force
         Move-Item "$env:TEMP\ghostwin-main\*" $InstallPath -Force
