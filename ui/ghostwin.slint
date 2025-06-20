@@ -1,0 +1,820 @@
+import { Button, VerticalBox, HorizontalBox, ListView, StandardButton, GroupBox, CheckBox, TabWidget, LineEdit, ProgressIndicator, ScrollView } from "std-widgets.slint";
+
+export struct ToolItem {
+    name: string,
+    category: string,
+    executable: bool,
+    path: string,
+    enabled: bool,
+}
+
+export struct InstallProgress {
+    current_step: string,
+    progress: float,
+    completed: bool,
+    error: string,
+}
+
+// GhostWin Dark Ocean Theme Colors
+export global GhostTheme {
+    // Primary colors - Deep Ocean Blue theme
+    out property <color> primary-bg: #0B1426;           // Deep space blue
+    out property <color> secondary-bg: #1E2A3A;        // Lighter ocean blue
+    out property <color> surface: #2A3B4D;             // Surface elements
+    out property <color> surface-hover: #34495E;       // Hover states
+    
+    // Accent colors
+    out property <color> accent-blue: #3498DB;          // Bright blue
+    out property <color> accent-cyan: #1ABC9C;          // Cyan for success
+    out property <color> accent-orange: #F39C12;       // Warning/info
+    out property <color> accent-red: #E74C3C;          // Error/danger
+    
+    // Text colors
+    out property <color> text-primary: #FFFFFF;        // Primary white text
+    out property <color> text-secondary: #BDC3C7;      // Secondary grey text
+    out property <color> text-muted: #7F8C8D;          // Muted text
+    
+    // Border and separator
+    out property <color> border: #34495E;
+    out property <color> divider: #2C3E50;
+}
+
+export component GhostWinApp inherits Window {
+    title: "GhostWin - Windows Deployment Toolkit";
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    background: GhostTheme.primary-bg;
+    
+    in-out property <[ToolItem]> tools: [];
+    in-out property <string> current_mode: "menu";
+    in-out property <bool> vnc_enabled: false;
+    in-out property <string> vnc_status: "Disconnected";
+    in-out property <InstallProgress> install_progress: { current_step: "", progress: 0.0, completed: false, error: "" };
+    
+    callback start_normal_install();
+    callback start_automated_install();
+    callback launch_tool(string);
+    callback toggle_vnc();
+    callback run_script(string);
+    callback show_tools();
+    callback show_menu();
+    
+    
+    HorizontalBox {
+        spacing: 0px;
+        
+        // Left sidebar with tools
+        sidebar := Rectangle {
+            width: 320px;
+            background: GhostTheme.secondary-bg;
+            
+            Rectangle {
+                x: parent.width - 1px;
+                width: 1px;
+                background: GhostTheme.border;
+            }
+            
+            VerticalBox {
+                padding: 20px;
+                spacing: 15px;
+                
+                // Header with logo space
+                Rectangle {
+                    height: 60px;
+                    background: GhostTheme.surface;
+                    border-radius: 8px;
+                    
+                    HorizontalBox {
+                        padding: 15px;
+                        alignment: center;
+                        
+                        Text {
+                            text: "�";
+                            font-size: 24px;
+                        }
+                        
+                        VerticalBox {
+                            alignment: center;
+                            
+                            Text {
+                                text: "GhostWin";
+                                font-size: 18px;
+                                font-weight: 700;
+                                color: GhostTheme.text-primary;
+                            }
+                            
+                            Text {
+                                text: "Deployment Toolkit";
+                                font-size: 12px;
+                                color: GhostTheme.text-secondary;
+                            }
+                        }
+                    }
+                }
+                
+                // Tools section
+                VerticalBox {
+                    spacing: 10px;
+                    
+                    Text {
+                        text: "🔧 Available Tools";
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: GhostTheme.text-secondary;
+                    }
+                    
+                    Rectangle {
+                        height: 200px;
+                        background: GhostTheme.surface;
+                        border-radius: 6px;
+                        
+                        ScrollView {
+                            VerticalBox {
+                                padding: 10px;
+                                spacing: 5px;
+                                
+                                for tool[index] in tools: Rectangle {
+                                    height: 40px;
+                                    background: tool.enabled ? GhostTheme.surface-hover : GhostTheme.secondary-bg;
+                                    border-radius: 4px;
+                                    border-width: 1px;
+                                    border-color: GhostTheme.border;
+                                    
+                                    HorizontalBox {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        spacing: 8px;
+                                        alignment: center;
+                                        
+                                        Text {
+                                            text: tool.executable ? "⚙️" : "📄";
+                                            font-size: 12px;
+                                        }
+                                        
+                                        Text {
+                                            text: tool.name;
+                                            font-size: 11px;
+                                            color: GhostTheme.text-primary;
+                                            overflow: elide;
+                                        }
+                                        
+                                        Rectangle {
+                                            width: 25px;
+                                            height: 20px;
+                                            background: GhostTheme.accent-blue;
+                                            border-radius: 3px;
+                                            
+                                            TouchArea {
+                                                clicked => { launch_tool(tool.path); }
+                                            }
+                                            
+                                            Text {
+                                                text: "▶";
+                                                color: white;
+                                                font-size: 10px;
+                                                horizontal-alignment: center;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // VNC Status section
+                Rectangle {
+                    height: 100px;
+                    background: GhostTheme.surface;
+                    border-radius: 6px;
+                    
+                    VerticalBox {
+                        padding: 15px;
+                        spacing: 10px;
+                        
+                        Text {
+                            text: "🌐 Remote Access";
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: GhostTheme.text-secondary;
+                        }
+                        
+                        HorizontalBox {
+                            alignment: space-between;
+                            
+                            Text {
+                                text: "VNC Status:";
+                                font-size: 12px;
+                                color: GhostTheme.text-primary;
+                            }
+                            
+                            Text {
+                                text: vnc_status;
+                                font-size: 12px;
+                                color: vnc_status == "Connected" ? GhostTheme.accent-cyan : GhostTheme.accent-red;
+                                font-weight: 600;
+                            }
+                        }
+                        
+                        Rectangle {
+                            height: 30px;
+                            background: vnc_enabled ? GhostTheme.accent-red : GhostTheme.accent-cyan;
+                            border-radius: 4px;
+                            
+                            TouchArea {
+                                clicked => { toggle_vnc(); }
+                            }
+                            
+                            Text {
+                                text: vnc_enabled ? "Stop VNC" : "Start VNC";
+                                color: white;
+                                font-size: 12px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+                }
+                
+                // Navigation buttons
+                VerticalBox {
+                    spacing: 8px;
+                    
+                    Rectangle {
+                        height: 40px;
+                        background: current_mode == "menu" ? GhostTheme.accent-blue : GhostTheme.surface;
+                        border-radius: 6px;
+                        
+                        TouchArea {
+                            clicked => { show_menu(); }
+                        }
+                        
+                        HorizontalBox {
+                            padding: 12px;
+                            alignment: center;
+                            
+                            Text {
+                                text: "🏠";
+                                font-size: 14px;
+                            }
+                            
+                            Text {
+                                text: "Main Menu";
+                                font-size: 12px;
+                                color: GhostTheme.text-primary;
+                                font-weight: 600;
+                            }
+                        }
+                    }
+                    
+                    Rectangle {
+                        height: 40px;
+                        background: current_mode == "tools" ? GhostTheme.accent-blue : GhostTheme.surface;
+                        border-radius: 6px;
+                        
+                        TouchArea {
+                            clicked => { show_tools(); }
+                        }
+                        
+                        HorizontalBox {
+                            padding: 12px;
+                            alignment: center;
+                            
+                            Text {
+                                text: "🔧";
+                                font-size: 14px;
+                            }
+                            
+                            Text {
+                                text: "Tools Manager";
+                                font-size: 12px;
+                                color: GhostTheme.text-primary;
+                                font-weight: 600;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Main content area
+        main_content := Rectangle {
+            background: GhostTheme.primary-bg;
+            
+            VerticalBox {
+                padding: 30px;
+                
+                if current_mode == "menu": VerticalBox {
+                    spacing: 30px;
+                    
+                    // Header section
+                    VerticalBox {
+                        spacing: 10px;
+                        alignment: center;
+                        
+                        Text {
+                            text: "👻 GhostWin Deployment Toolkit";
+                            font-size: 32px;
+                            font-weight: 700;
+                            color: GhostTheme.text-primary;
+                            horizontal-alignment: center;
+                        }
+                        
+                        Text {
+                            text: "Professional Windows deployment and automation";
+                            font-size: 16px;
+                            color: GhostTheme.text-secondary;
+                            horizontal-alignment: center;
+                        }
+                        
+                        Rectangle {
+                            height: 3px;
+                            width: 200px;
+                            background: GhostTheme.accent-blue;
+                            border-radius: 2px;
+                        }
+                    }
+                    
+                    // Installation Mode Cards
+                    HorizontalBox {
+                        spacing: 30px;
+                        alignment: center;
+                        
+                        // Normal Install Card
+                        Rectangle {
+                            width: 280px;
+                            height: 220px;
+                            background: GhostTheme.secondary-bg;
+                            border-radius: 12px;
+                            border-width: 1px;
+                            border-color: GhostTheme.border;
+                            
+                            TouchArea {
+                                clicked => { start_normal_install(); }
+                            }
+                            
+                            VerticalBox {
+                                padding: 25px;
+                                spacing: 15px;
+                                alignment: center;
+                                
+                                Text {
+                                    text: "🖥️";
+                                    font-size: 48px;
+                                    horizontal-alignment: center;
+                                }
+                                
+                                Text {
+                                    text: "Normal Installation";
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                    color: GhostTheme.text-primary;
+                                    horizontal-alignment: center;
+                                }
+                                
+                                Text {
+                                    text: "Standard Windows installation with no modifications or automation";
+                                    font-size: 14px;
+                                    color: GhostTheme.text-secondary;
+                                    horizontal-alignment: center;
+                                    wrap: word-wrap;
+                                }
+                                
+                                Rectangle {
+                                    height: 35px;
+                                    background: GhostTheme.surface;
+                                    border-radius: 6px;
+                                    
+                                    Text {
+                                        text: "Start Installation";
+                                        color: GhostTheme.text-primary;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Automated Install Card
+                        Rectangle {
+                            width: 280px;
+                            height: 220px;
+                            background: GhostTheme.secondary-bg;
+                            border-radius: 12px;
+                            border-width: 2px;
+                            border-color: GhostTheme.accent-blue;
+                            
+                            TouchArea {
+                                clicked => { start_automated_install(); }
+                            }
+                            
+                            VerticalBox {
+                                padding: 25px;
+                                spacing: 15px;
+                                alignment: center;
+                                
+                                Text {
+                                    text: "⚡";
+                                    font-size: 48px;
+                                    horizontal-alignment: center;
+                                }
+                                
+                                Text {
+                                    text: "Automated Installation";
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                    color: GhostTheme.text-primary;
+                                    horizontal-alignment: center;
+                                }
+                                
+                                Text {
+                                    text: "Full automation with scripts, tools, remote access, and custom configurations";
+                                    font-size: 14px;
+                                    color: GhostTheme.text-secondary;
+                                    horizontal-alignment: center;
+                                    wrap: word-wrap;
+                                }
+                                
+                                Rectangle {
+                                    height: 35px;
+                                    background: GhostTheme.accent-blue;
+                                    border-radius: 6px;
+                                    
+                                    Text {
+                                        text: "Start Automated Install";
+                                        color: white;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // System Information Panel
+                    Rectangle {
+                        height: 120px;
+                        background: GhostTheme.surface;
+                        border-radius: 8px;
+                        
+                        VerticalBox {
+                            padding: 20px;
+                            spacing: 15px;
+                            
+                            Text {
+                                text: "📊 System Status";
+                                font-size: 16px;
+                                font-weight: 600;
+                                color: GhostTheme.text-secondary;
+                            }
+                            
+                            HorizontalBox {
+                                spacing: 40px;
+                                alignment: space-around;
+                                
+                                VerticalBox {
+                                    alignment: center;
+                                    
+                                    Text {
+                                        text: tools.length;
+                                        font-size: 24px;
+                                        font-weight: 700;
+                                        color: GhostTheme.accent-cyan;
+                                        horizontal-alignment: center;
+                                    }
+                                    
+                                    Text {
+                                        text: "Tools Detected";
+                                        font-size: 12px;
+                                        color: GhostTheme.text-secondary;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                                
+                                Rectangle {
+                                    width: 1px;
+                                    background: GhostTheme.divider;
+                                }
+                                
+                                VerticalBox {
+                                    alignment: center;
+                                    
+                                    Text {
+                                        text: vnc_enabled ? "🟢" : "🔴";
+                                        font-size: 24px;
+                                        horizontal-alignment: center;
+                                    }
+                                    
+                                    Text {
+                                        text: "VNC Server";
+                                        font-size: 12px;
+                                        color: GhostTheme.text-secondary;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                                
+                                Rectangle {
+                                    width: 1px;
+                                    background: GhostTheme.divider;
+                                }
+                                
+                                VerticalBox {
+                                    alignment: center;
+                                    
+                                    Text {
+                                        text: "🏗️";
+                                        font-size: 24px;
+                                        horizontal-alignment: center;
+                                    }
+                                    
+                                    Text {
+                                        text: "Ready to Deploy";
+                                        font-size: 12px;
+                                        color: GhostTheme.text-secondary;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if current_mode == "install": VerticalBox {
+                    spacing: 30px;
+                    alignment: center;
+                    
+                    Text {
+                        text: "🚀 Windows Installation in Progress";
+                        font-size: 28px;
+                        font-weight: 700;
+                        color: GhostTheme.text-primary;
+                        horizontal-alignment: center;
+                    }
+                    
+                    Rectangle {
+                        width: 400px;
+                        height: 8px;
+                        background: GhostTheme.surface;
+                        border-radius: 4px;
+                        
+                        Rectangle {
+                            width: parent.width * install_progress.progress;
+                            height: parent.height;
+                            background: GhostTheme.accent-blue;
+                            border-radius: 4px;
+                        }
+                    }
+                    
+                    Text {
+                        text: install_progress.current_step;
+                        font-size: 16px;
+                        color: GhostTheme.text-secondary;
+                        horizontal-alignment: center;
+                    }
+                    
+                    if install_progress.error != "": Rectangle {
+                        background: GhostTheme.accent-red;
+                        border-radius: 6px;
+                        padding: 15px;
+                        
+                        Text {
+                            text: "❌ " + install_progress.error;
+                            color: white;
+                            font-size: 14px;
+                            horizontal-alignment: center;
+                        }
+                    }
+                    
+                    if install_progress.completed: Rectangle {
+                        background: GhostTheme.accent-cyan;
+                        border-radius: 6px;
+                        padding: 15px;
+                        
+                        Text {
+                            text: "✅ Installation Complete!";
+                            color: white;
+                            font-size: 18px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+                
+                if current_mode == "tools": VerticalBox {
+                    spacing: 25px;
+                    
+                    Text {
+                        text: "🔧 Tool Management Center";
+                        font-size: 28px;
+                        font-weight: 700;
+                        color: GhostTheme.text-primary;
+                        horizontal-alignment: center;
+                    }
+                    
+                    HorizontalBox {
+                        spacing: 20px;
+                        
+                        // System Tools Column
+                        Rectangle {
+                            width: 45%;
+                            background: GhostTheme.secondary-bg;
+                            border-radius: 8px;
+                            
+                            VerticalBox {
+                                padding: 20px;
+                                spacing: 15px;
+                                
+                                Text {
+                                    text: "⚙️ System Tools";
+                                    font-size: 18px;
+                                    font-weight: 600;
+                                    color: GhostTheme.text-primary;
+                                }
+                                
+                                ScrollView {
+                                    height: 350px;
+                                    
+                                    VerticalBox {
+                                        spacing: 8px;
+                                        
+                                        for tool in tools: Rectangle {
+                                            if tool.category == "Tool": Rectangle {
+                                                height: 70px;
+                                                background: GhostTheme.surface;
+                                                border-radius: 6px;
+                                                border-width: 1px;
+                                                border-color: GhostTheme.border;
+                                                
+                                                HorizontalBox {
+                                                    padding: 15px;
+                                                    spacing: 12px;
+                                                    
+                                                    Text {
+                                                        text: tool.executable ? "⚙️" : "📄";
+                                                        font-size: 18px;
+                                                        width: 25px;
+                                                    }
+                                                    
+                                                    VerticalBox {
+                                                        spacing: 4px;
+                                                        
+                                                        Text {
+                                                            text: tool.name;
+                                                            font-size: 14px;
+                                                            font-weight: 600;
+                                                            color: GhostTheme.text-primary;
+                                                            overflow: elide;
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: tool.path;
+                                                            font-size: 11px;
+                                                            color: GhostTheme.text-muted;
+                                                            overflow: elide;
+                                                        }
+                                                    }
+                                                    
+                                                    Rectangle {
+                                                        width: 70px;
+                                                        height: 32px;
+                                                        background: GhostTheme.accent-blue;
+                                                        border-radius: 6px;
+                                                        
+                                                        TouchArea {
+                                                            clicked => { launch_tool(tool.path); }
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: "Launch";
+                                                            color: white;
+                                                            font-size: 12px;
+                                                            font-weight: 600;
+                                                            horizontal-alignment: center;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Scripts Column
+                        Rectangle {
+                            width: 45%;
+                            background: GhostTheme.secondary-bg;
+                            border-radius: 8px;
+                            
+                            VerticalBox {
+                                padding: 20px;
+                                spacing: 15px;
+                                
+                                Text {
+                                    text: "📜 Automation Scripts";
+                                    font-size: 18px;
+                                    font-weight: 600;
+                                    color: GhostTheme.text-primary;
+                                }
+                                
+                                ScrollView {
+                                    height: 350px;
+                                    
+                                    VerticalBox {
+                                        spacing: 8px;
+                                        
+                                        for tool in tools: Rectangle {
+                                            if tool.category == "Logon" || tool.category == "PEAutoRun": Rectangle {
+                                                height: 80px;
+                                                background: GhostTheme.surface;
+                                                border-radius: 6px;
+                                                border-width: 1px;
+                                                border-color: GhostTheme.border;
+                                                
+                                                HorizontalBox {
+                                                    padding: 15px;
+                                                    spacing: 12px;
+                                                    
+                                                    Text {
+                                                        text: tool.category == "PEAutoRun" ? "⚡" : "🏁";
+                                                        font-size: 18px;
+                                                        width: 25px;
+                                                    }
+                                                    
+                                                    VerticalBox {
+                                                        spacing: 4px;
+                                                        
+                                                        Text {
+                                                            text: tool.name;
+                                                            font-size: 14px;
+                                                            font-weight: 600;
+                                                            color: GhostTheme.text-primary;
+                                                            overflow: elide;
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: tool.category == "PEAutoRun" ? "Auto-run at boot" : "Post-install script";
+                                                            font-size: 11px;
+                                                            color: GhostTheme.text-secondary;
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: tool.path;
+                                                            font-size: 10px;
+                                                            color: GhostTheme.text-muted;
+                                                            overflow: elide;
+                                                        }
+                                                    }
+                                                    
+                                                    VerticalBox {
+                                                        spacing: 8px;
+                                                        alignment: center;
+                                                        width: 80px;
+                                                        
+                                                        Rectangle {
+                                                            height: 24px;
+                                                            background: tool.enabled ? GhostTheme.accent-cyan : GhostTheme.surface-hover;
+                                                            border-radius: 12px;
+                                                            
+                                                            Text {
+                                                                text: tool.enabled ? "ENABLED" : "DISABLED";
+                                                                color: white;
+                                                                font-size: 9px;
+                                                                font-weight: 700;
+                                                                horizontal-alignment: center;
+                                                            }
+                                                        }
+                                                        
+                                                        Rectangle {
+                                                            height: 28px;
+                                                            background: GhostTheme.accent-orange;
+                                                            border-radius: 6px;
+                                                            
+                                                            TouchArea {
+                                                                clicked => { run_script(tool.path); }
+                                                            }
+                                                            
+                                                            Text {
+                                                                text: "Execute";
+                                                                color: white;
+                                                                font-size: 11px;
+                                                                font-weight: 600;
+                                                                horizontal-alignment: center;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

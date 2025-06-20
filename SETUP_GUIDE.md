@@ -1,39 +1,50 @@
 # GhostWin Setup Guide
 
-## Directory Organization
+[![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
+[![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=flat-square&logo=automattic)](https://github.com/yourusername/ghostwin)
 
-### 📁 Recommended Structure
+**Complete setup and deployment guide for GhostWin**
+
+## Quick Start
+
+### 🚀 Concept
+
+1. **Transfer to Windows machine** - Copy entire project folder
+2. **Install Rust** - Download from [rustup.rs](https://rustup.rs/)
+3. **Build project** - Run `cargo build --release`
+4. **Launch GUI** - Run `./target/release/ghostwin.exe gui`
+5. **Demo ready!** - Professional interface with deep ocean blue theme
+
+### 📁 Directory Organization
+
+#### Recommended Project Structure
 
 ```
 ghostwin/                       # Main project directory
-├── ghostwin.exe               # The Rust executable
+├── ghostwin.exe               # The Rust executable (after build)
 ├── ghostwin.toml              # Configuration file
+├── assets/                    # Screenshots and documentation assets
+│   └── ghostwin.png          # GUI screenshot
 │
-├── Tools/                     # 🔧 Manual tools (shown in GUI)
-│   ├── MyDiskTool.exe
-│   ├── NetworkDiag.bat  
-│   ├── SystemInfo.ps1
-│   └── .Options.txt           # Optional: "CheckAll", "CollapseTree"
+├── tools/                     # 🔧 System tools (shown in GUI)
+│   ├── system/
+│   ├── network/
+│   ├── hardware/
+│   └── remote_access/
 │
-├── PEAutoRun/                 # ⚡ Auto-run scripts (run at WinPE boot)
-│   ├── NetworkSetup.bat
-│   ├── DriverInstall.ps1
-│   ├── VPNConnect.exe
-│   └── .Options.txt
+├── pe_autorun/               # ⚡ Auto-run scripts (run at WinPE boot)
+│   ├── services/             # VNC, NetBird, etc.
+│   ├── system_setup/         # Registry tweaks, profiles
+│   └── associations/         # File associations
 │
-├── Logon/                     # 🏁 Post-install scripts (run after Windows install)
-│   ├── SoftwareInstall.ps1
-│   ├── ConfigureOS.bat
-│   ├── AdminSetup[system].ps1  # [system] = run as SYSTEM
-│   ├── Monitor[background].exe  # [background] = don't wait
-│   └── .Options.txt
+├── scripts/                  # 🏁 Post-install automation
+│   ├── basic/                # Simple setup scripts
+│   ├── advanced/             # Complex automation
+│   └── vendor/               # Vendor-specific configs
 │
-└── concept/                   # 🔄 Legacy AutoIt tools (optional to keep)
-    └── windows-setup-helper-master/
-        └── Helper/
-            ├── Tools/         # Existing tools will be detected
-            ├── PEAutoRun/     # Existing auto-run scripts
-            └── Scripts/       # Will be treated as Logon scripts
+└── config/                   # 🔧 System configurations
+    ├── autounattend.xml      # Windows installation automation
+    └── winpeshl.ini          # WinPE shell configuration
 ```
 
 ### 🗂️ External Storage
@@ -241,4 +252,65 @@ ghostwin --verbose build --source-iso ... --output-dir ... --output-iso ...
 # Required for DISM operations
 ```
 
-This setup gives you maximum flexibility while maintaining compatibility with existing AutoIt tools.
+## 🎯 Demo Workflow for Boss Presentation
+
+### Step-by-Step Demo Script
+
+#### 1. **Opening - Professional Introduction**
+```
+"This is GhostWin - our new Windows deployment toolkit built with Rust. 
+It replaces our old batch script approach with a modern, branded interface."
+```
+
+#### 2. **Show the Main Interface**
+- Launch: `ghostwin gui`
+- **Highlight**: Deep ocean blue professional theme
+- **Point out**: GhostWin branding and clean layout
+- **Explain**: "This runs directly in WinPE, replacing the standard Windows setup"
+
+#### 3. **Demonstrate Installation Modes**
+- **Normal Install**: "Standard Windows installation - no modifications"
+- **Automated Install**: "Full automation with our custom scripts and tools"
+- **Emphasize**: "One-click deployment with complete control"
+
+#### 4. **Show Tool Management**
+- Click "Tools Manager" in sidebar
+- **System Tools section**: "All our diagnostic and repair utilities"
+- **Automation Scripts section**: "Registry tweaks, configurations, post-install automation"
+- **Demo**: Click a few tool launch buttons
+
+#### 5. **VNC Remote Access**
+- **Show VNC controls** in sidebar
+- **Explain**: "Built-in remote access for difficult deployments"
+- **Highlight**: Connection status and one-click control
+
+#### 6. **System Status Panel**
+- **Point out**: Tool count, VNC status, deployment readiness
+- **Explain**: "Real-time system information at a glance"
+
+#### 7. **Technical Benefits Summary**
+```
+"Built with Rust for reliability and speed
+Professional interface suitable for client demonstrations  
+Replaces fragile batch scripts with robust automation
+Integrates all our tools in one cohesive interface
+Remote access capability for complex deployments"
+```
+
+#### 8. **Business Impact**
+```
+"Faster deployments = more machines per day
+Professional appearance for client sites
+Reduced training time for new technicians
+Standardized deployment process across all jobs"
+```
+
+### 💡 Demo Tips
+
+- **Keep it moving** - Don't dwell on technical details
+- **Focus on visual appeal** - The dark theme looks professional
+- **Emphasize automation** - "One click instead of manual steps"
+- **Highlight branding** - "This represents our company professionally"
+- **Show remote capability** - "We can assist deployments remotely"
+
+### 🎬 Demo Duration: 5-7 minutes optimal

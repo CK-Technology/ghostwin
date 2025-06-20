@@ -56,18 +56,27 @@ impl ToolDetector {
         let mut tools = Vec::new();
         
         for folder_name in &self.config.folders {
-            let folder_path = base_path.as_ref().join(folder_name);
+            let folder_path = if folder_name.starts_with('/') || (folder_name.len() > 1 && folder_name.chars().nth(1) == Some(':')) {
+                // Absolute path
+                PathBuf::from(folder_name)
+            } else {
+                // Relative path - join with base_path
+                base_path.as_ref().join(folder_name)
+            };
+            
             if !folder_path.exists() {
+                debug!("Folder does not exist: {}", folder_path.display());
                 continue;
             }
             
             let category = match folder_name.as_str() {
-                name if name.starts_with("Tools") => ToolCategory::Tool,
-                name if name.starts_with("PEAutoRun") => ToolCategory::PEAutoRun,
-                name if name.starts_with("Logon") => ToolCategory::Logon,
+                name if name.contains("tools") => ToolCategory::Tool,
+                name if name.contains("pe_autorun") => ToolCategory::PEAutoRun,
+                name if name.contains("scripts") => ToolCategory::Logon,
                 _ => ToolCategory::Tool,
             };
             
+            debug!("Scanning folder: {} as {:?}", folder_path.display(), category);
             tools.extend(self.scan_folder(&folder_path, category)?);
         }
         

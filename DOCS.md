@@ -1,11 +1,18 @@
 # GhostWin Documentation
 
+[![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
+[![Rust](https://img.shields.io/badge/Language-Rust-000000?style=flat-square&logo=rust)](https://www.rust-lang.org/)
+[![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=flat-square&logo=automattic)](https://github.com/yourusername/ghostwin)
+
+**Complete technical documentation for GhostWin deployment toolkit**
+
 ## Table of Contents
 
 - [Overview](#overview)
 - [Installation](#installation)
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
+- [GUI Interface](#gui-interface)
 - [Configuration](#configuration)
 - [Workflows](#workflows)
 - [Tool Management](#tool-management)
@@ -16,13 +23,15 @@
 
 GhostWin is a modern, Rust-powered Windows deployment toolkit that builds custom Windows installer ISOs with embedded WinPE environments. It provides both CLI and GUI workflows for IT professionals who need to automate Windows installations with custom tools, scripts, and configurations.
 
-### Key Features
+### ✨ Key Features
 
-- **🔧 Modern CLI** - Replace batch scripts with a robust command-line interface
+- **🎨 Modern GUI** - Professional dark ocean blue interface optimized for WinPE
+- **🔧 Robust CLI** - Replace batch scripts with a modern command-line interface
 - **🏗️ WIM Management** - Automated Windows Image (WIM) mounting and modification
 - **📦 Tool Integration** - Automatic detection and packaging of tools and scripts
+- **🌐 Remote Access** - Integrated VNC server with connection management
 - **⚡ WinPE Enhancement** - Package injection and system modifications
-- **🔐 Security** - Password protection and VNC remote access
+- **🔐 Security** - Password protection and encrypted remote access
 - **📋 Validation** - Comprehensive system and configuration checking
 
 ## Installation
@@ -513,4 +522,55 @@ del ghostwin.toml
 # Validate fresh setup
 ghostwin validate
 ```
+
+## GUI Interface
+
+GhostWin features a modern, professional GUI built with Slint that launches within WinPE environments. The interface uses a deep ocean blue theme optimized for deployment scenarios.
+
+### 🎨 Theme & Design
+
+**Color Palette:**
+- **Primary Background**: Deep space blue (`#0B1426`)
+- **Secondary Surfaces**: Ocean blue (`#1E2A3A`, `#2A3B4D`)
+- **Accent Colors**: Bright blue (`#3498DB`), cyan success (`#1ABC9C`), orange warnings (`#F39C12`)
+- **Typography**: Clean white text with secondary gray for optimal readability
+
+### 🖥️ Interface Layout
+
+#### Main Menu
+- **Installation Mode Selection**: Choose between Normal and Automated installation
+- **System Status Panel**: Real-time display of tool count, VNC status, and deployment readiness
+- **Professional Branding**: GhostWin logo and branded header
+
+#### Tool Management Center
+- **System Tools Section**: Launch system utilities, diagnostic tools, and management applications
+- **Automation Scripts Section**: Execute registry scripts, configuration tools, and deployment automation
+- **Tool Launch Controls**: One-click execution with visual feedback
+- **Script Status Indicators**: Shows enabled/disabled state and execution options
+
+#### Sidebar Navigation
+- **Quick Tool Access**: Compact list of available tools with launch buttons
+- **VNC Remote Access**: Integrated controls for starting/stopping VNC server
+- **Connection Status**: Real-time display of VNC connectivity state
+- **Navigation Menu**: Switch between Main Menu and Tool Management views
+
+### 🚀 Launching the GUI
+
+```bash
+# Start the GUI interface
+ghostwin gui
+
+# The GUI will automatically:
+# 1. Scan for available tools and scripts
+# 2. Initialize VNC configuration
+# 3. Display the main interface
+```
+
+### 💡 GUI Features
+
+- **Responsive Design**: Adapts to different screen resolutions
+- **Touch-Friendly**: Optimized for touch screens in deployment environments
+- **Professional Appearance**: Suitable for demonstration to management
+- **Real-Time Updates**: Dynamic status displays and live system information
+- **Intuitive Navigation**: Clear visual hierarchy and logical workflow
 

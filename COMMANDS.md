@@ -1,12 +1,17 @@
 # GhostWin Command Reference
 
+[![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
+[![Rust](https://img.shields.io/badge/Language-Rust-000000?style=flat-square&logo=rust)](https://www.rust-lang.org/)
+
+**Complete command reference for GhostWin deployment toolkit**
+
 ## Table of Contents
 
 - [CLI Overview](#cli-overview)
 - [Global Options](#global-options)
 - [Commands](#commands)
-  - [build](#build)
   - [gui](#gui)
+  - [build](#build)
   - [validate](#validate)
   - [tools](#tools)
 - [Configuration File](#configuration-file)
@@ -16,24 +21,23 @@
 
 ## CLI Overview
 
-```
+```bash
 ghostwin [GLOBAL_OPTIONS] <COMMAND> [COMMAND_OPTIONS]
 ```
 
-GhostWin provides a multi-command CLI interface for Windows deployment automation.
+GhostWin provides a multi-command CLI interface for Windows deployment automation with both GUI and command-line workflows.
 
-### Basic Usage
+### Quick Start
 
 ```bash
-# Show help
-ghostwin --help
-ghostwin <command> --help
+# Launch the GUI interface (recommended for WinPE)
+ghostwin gui
 
-# Enable verbose logging
-ghostwin --verbose <command>
+# Build a custom ISO
+ghostwin build --source Windows11.iso --output GhostWin.iso
 
-# Show version
-ghostwin --version
+# Validate tools and configuration
+ghostwin validate
 ```
 
 ## Global Options

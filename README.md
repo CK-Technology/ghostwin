@@ -1,5 +1,21 @@
 # GhostWin
 
+[![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Rust](https://img.shields.io/badge/Language-Rust-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=for-the-badge&logo=automattic&logoColor=white)](https://github.com/ghostkellz/ghostwin)
+[![Deployment](https://img.shields.io/badge/Deployment-Toolkit-FF6B35?style=for-the-badge&logo=rocket&logoColor=white)](https://github.com/ghostkellz/ghostwin)
+
+![GhostWin Screenshot](assets/ghostwin.png)
+
+**GhostWin** is a modern, secure, and Rust-powered Windows deployment toolkit designed for IT professionals. Built with simplicity, automation, and powerful customization in mind, GhostWin provides a fast and reliable interface for building custom Windows installer images with embedded scripts, tools, and user-driven options.
+
+> ✅ Built for **Resolve Technology** in collaboration with **Christopher Kelley**
+![GhostWin Screenshot](assets/ghostwin.png)
+
+**GhostWin** is a modern, secure, and Rust-powered Windows deployment toolkit designed for IT professionals. Built with simplicity, automation, and powerful customization in mind, GhostWin provides a fast and reliable interface for building custom Windows installer images with embedded scripts, tools, and user-driven options.
+
+> ✅ Built for **Resolve Technology** in collaboration with \*\*Christopher Kelley \*\*stWin
+
 **GhostWin** is a modern, secure, and Rust-powered Windows deployment toolkit designed for IT professionals. Built with simplicity, automation, and powerful customization in mind, GhostWin provides a fast and reliable interface for building custom Windows installer images with embedded scripts, tools, and user-driven options.
 
 > ✅ Built for **Resolve Technology** in collaboration with \*\*Christopher Kelley \*\*
@@ -21,12 +37,12 @@
 
 | Feature                   | Status         | Notes                                       |
 | ------------------------- | -------------- | ------------------------------------------- |
-| Build custom WinPE ISOs   | 🟨 Planned     | Clean Rust CLI instead of batch scripts     |
+| Build custom WinPE ISOs   | 🟨 In Progress | Clean Rust CLI instead of batch scripts     |
 | Integrate scripts & tools | 🟩 Done        | Folder-based detection (`/Tools`, `/Logon`) |
-| GUI frontend in WinPE     | 🟨 In Progress | Slint or Tauri, native GUI under WinPE      |
-| VNC & remote access       | 🟨 Planned     | TightVNC config auto-injection              |
+| GUI frontend in WinPE     | � Done        | Slint-based native GUI with dark theme      |
+| VNC & remote access       | � Done        | TightVNC integration and status display     |
 | Driver injection          | 🟨 Planned     | `PEAutoRun/Drivers/` detection              |
-| Logon script selector     | 🟨 Planned     | With background/system context flags        |
+| Logon script selector     | 🟨 In Progress | With background/system context flags        |
 | `ghostwin build` CLI tool | 🟨 In Progress | Replaces `Build.bat` completely             |
 
 ---
@@ -46,20 +62,21 @@ GhostWin includes:
 
 ---
 
-## 🖥️ GUI Goals
+## 🖥️ GUI Interface
 
-The GhostWin GUI launches inside WinPE with a clear, interactive layout:
+The GhostWin GUI launches inside WinPE with a professional dark ocean blue theme and intuitive layout:
 
-* "Normal Install" (no modifications)
-* "Automated Install" (auto-login, scripts, tools)
-* Tool List Sidebar (Explorer, Putty, Registry tools)
-* Script Runner for Logon/Post-install
-* Taskbar with current task + connectivity status
+**🎯 Main Features:**
+* **Installation Modes**: "Normal Install" (no modifications) and "Automated Install" (full automation)
+* **Tool Management Center**: System tools and automation scripts organized in dedicated sections
+* **VNC Remote Access**: Integrated controls with real-time connection status
+* **Professional Theme**: Deep ocean blue design optimized for deployment environments
+* **Real-time Status**: System information panel showing tool count and deployment readiness
 
-🎯 **UI Framework:**
-
-* Tauri: + good Rust bindings, heavier footprint, web-based
-* **Slint**: ✅ recommended – native WinPE rendering, minimal deps, pure Rust compatible
+**🎨 UI Framework:**
+* **Slint**: ✅ **Implemented** – native WinPE rendering, minimal dependencies, pure Rust compatible
+* Modern dark theme with professional branding
+* Responsive layout optimized for various screen resolutions
 
 ---
 

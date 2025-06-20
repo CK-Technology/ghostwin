@@ -8,6 +8,8 @@ mod wim;
 mod config;
 mod tools;
 mod utils;
+mod vnc;
+mod executor;
 
 use cli::*;
 
