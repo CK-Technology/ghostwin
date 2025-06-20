@@ -122,7 +122,6 @@ function Fix-CargoIssues {
         $configContent = @"
 [net]
 retry = 3
-git-fetch-with-cli = true
 offline = false
 
 [http]
@@ -137,11 +136,8 @@ jobs = 1  # Reduce parallel jobs to avoid overwhelming slow connections
         Write-Host "   Creating optimized Cargo configuration..." -ForegroundColor Gray
         Set-Content -Path $configFile -Value $configContent -Force
         
-        # 4. Update Git configuration for Cargo
-        Write-Host "   Configuring Git for Cargo..." -ForegroundColor Gray
-        & git config --global http.postBuffer 524288000  # 500MB buffer
-        & git config --global http.lowSpeedLimit 0
-        & git config --global http.lowSpeedTime 999999
+        # 4. Skip Git configuration (not required for Rust builds)
+        Write-Host "   Skipping Git configuration (not required for Rust builds)" -ForegroundColor Gray
         
         Write-Host "SUCCESS: Cargo configuration reset complete!" -ForegroundColor Green
         Write-Host "   Try running the installer again without -FixCargo" -ForegroundColor Gray
@@ -173,7 +169,6 @@ function Configure-RustEnvironment {
 # Optimized Cargo configuration for Windows builds
 [net]
 retry = 5                    # Retry failed network operations up to 5 times
-git-fetch-with-cli = true    # Use system Git instead of libgit2 (more reliable on Windows)
 offline = false              # Allow network access
 check-revoke = false         # Skip certificate revocation checks (faster, corporate networks)
 
@@ -227,33 +222,10 @@ color = "auto"               # Auto-detect color support
             Write-Host "   Continuing without custom config (may be slower)" -ForegroundColor Gray
         }
         
-        # 3. Configure Git for optimal Cargo usage
-        Write-Host "   Configuring Git for Cargo compatibility..." -ForegroundColor Gray
-        
-        try {
-            # Git network settings
-            & git config --global http.postBuffer 1048576000    # 1GB buffer for large repos
-            & git config --global http.lowSpeedLimit 1024       # 1KB/s minimum
-            & git config --global http.lowSpeedTime 30          # 30 second timeout
-            & git config --global http.sslVerify true           # Verify SSL certificates
-            & git config --global http.version HTTP/1.1         # Use HTTP/1.1 (more compatible)
-            
-            # Git performance settings
-            & git config --global core.preloadindex true        # Preload index for performance
-            & git config --global core.fscache true             # Enable filesystem cache on Windows
-            & git config --global gc.auto 256                   # Auto garbage collect less frequently
-            
-            Write-Host "   Git configuration completed successfully" -ForegroundColor Gray
-        } catch {
-            Write-Host "   WARNING: Some Git configuration failed: $($_.Exception.Message)" -ForegroundColor Yellow
-            Write-Host "   Continuing anyway (builds should still work)" -ForegroundColor Gray
-        }
-        
-        # 4. Set up environment variables for this session
+        # 3. Configure environment variables for this session (no Git required)
         Write-Host "   Configuring environment variables..." -ForegroundColor Gray
         
         # Cargo environment variables
-        $env:CARGO_NET_GIT_FETCH_WITH_CLI = "true"
         $env:CARGO_NET_RETRY = "5"
         $env:CARGO_HTTP_TIMEOUT = "600"
         $env:CARGO_HTTP_LOW_SPEED_LIMIT = "1024"
@@ -275,40 +247,80 @@ color = "auto"               # Auto-detect color support
         
         Write-Host "   Configured for $optimalJobs parallel build jobs" -ForegroundColor Gray
         
-        # 5. Configure Windows Defender exclusions (if running as admin)
+        # 4. Configure Windows Defender exclusions (if available and admin) - ULTRA SAFE
         if (([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-            Write-Host "   Configuring Windows Defender exclusions..." -ForegroundColor Gray
+            Write-Host "   Checking Windows Defender availability..." -ForegroundColor Gray
             
             try {
-                # Add Cargo and target directories to exclusions
-                Add-MpPreference -ExclusionPath $cargoHome -ErrorAction SilentlyContinue
-                Add-MpPreference -ExclusionPath "$env:USERPROFILE\.rustup" -ErrorAction SilentlyContinue
-                Add-MpPreference -ExclusionProcess "cargo.exe" -ErrorAction SilentlyContinue
-                Add-MpPreference -ExclusionProcess "rustc.exe" -ErrorAction SilentlyContinue
-                Add-MpPreference -ExclusionProcess "link.exe" -ErrorAction SilentlyContinue
+                # Triple-check: Module availability, service status, and cmdlet accessibility
+                $defenderAvailable = $false
                 
-                Write-Host "   Windows Defender exclusions added for Rust tools" -ForegroundColor Gray
+                # Check 1: Is the module available?
+                $defenderModule = Get-Module -ListAvailable -Name "Defender" -ErrorAction SilentlyContinue
+                if ($defenderModule) {
+                    # Check 2: Is Windows Defender service running?
+                    $defenderService = Get-Service -Name "WinDefend" -ErrorAction SilentlyContinue
+                    if ($defenderService -and $defenderService.Status -eq "Running") {
+                        # Check 3: Can we actually use the cmdlets?
+                        try {
+                            Import-Module Defender -ErrorAction Stop
+                            # Test if Add-MpPreference is actually available
+                            $null = Get-Command Add-MpPreference -ErrorAction Stop
+                            $defenderAvailable = $true
+                        } catch {
+                            Write-Host "   Windows Defender cmdlets not accessible" -ForegroundColor Gray
+                        }
+                    } else {
+                        Write-Host "   Windows Defender service not running" -ForegroundColor Gray
+                    }
+                } else {
+                    Write-Host "   Windows Defender module not available" -ForegroundColor Gray
+                }
+                
+                if ($defenderAvailable) {
+                    Write-Host "   Adding Windows Defender exclusions..." -ForegroundColor Gray
+                    # Add exclusions with individual error handling
+                    try { Add-MpPreference -ExclusionPath $cargoHome -ErrorAction Stop } catch { }
+                    try { Add-MpPreference -ExclusionPath "$env:USERPROFILE\.rustup" -ErrorAction Stop } catch { }
+                    try { Add-MpPreference -ExclusionProcess "cargo.exe" -ErrorAction Stop } catch { }
+                    try { Add-MpPreference -ExclusionProcess "rustc.exe" -ErrorAction Stop } catch { }
+                    try { Add-MpPreference -ExclusionProcess "link.exe" -ErrorAction Stop } catch { }
+                    
+                    Write-Host "   Windows Defender exclusions configured" -ForegroundColor Gray
+                } else {
+                    Write-Host "   Skipping Windows Defender exclusions (not available)" -ForegroundColor Gray
+                }
             } catch {
-                Write-Host "   Could not configure Windows Defender exclusions (this is optional)" -ForegroundColor Gray
+                Write-Host "   Skipping Windows Defender exclusions (configuration failed safely)" -ForegroundColor Gray
             }
+        } else {
+            Write-Host "   Skipping Windows Defender exclusions (requires admin privileges)" -ForegroundColor Gray
         }
         
-        # 6. Verify Rust toolchain and update if needed
+        # 5. Verify Rust toolchain and update if needed (no Git required)
         Write-Host "   Verifying Rust toolchain..." -ForegroundColor Gray
         
         if (Test-Command "rustup") {
-            # Update to latest stable
-            & rustup update stable 2>$null | Out-Null
-            
-            # Ensure MSVC target is installed
-            & rustup target add x86_64-pc-windows-msvc 2>$null | Out-Null
-            
-            # Add useful components
-            & rustup component add clippy 2>$null | Out-Null    # Linter
-            & rustup component add rustfmt 2>$null | Out-Null   # Formatter
+            try {
+                # Update to latest stable (silently)
+                & rustup update stable 2>$null | Out-Null
+                
+                # Ensure MSVC target is installed
+                & rustup target add x86_64-pc-windows-msvc 2>$null | Out-Null
+                
+                # Add useful components (silently)
+                & rustup component add clippy 2>$null | Out-Null    # Linter
+                & rustup component add rustfmt 2>$null | Out-Null   # Formatter
+                
+                Write-Host "   Rust toolchain updated and components added" -ForegroundColor Gray
+            } catch {
+                Write-Host "   Rust toolchain verification completed (some updates may have failed)" -ForegroundColor Gray
+            }
+        } else {
+            Write-Host "   Rustup not available, skipping toolchain verification" -ForegroundColor Gray
         }
         
-        # 7. Pre-warm Cargo cache with common dependencies (optional)
+        # 6. Pre-warm Cargo cache with common dependencies (optional, no Git required)
         Write-Host "   Pre-warming Cargo cache with common dependencies..." -ForegroundColor Gray
         
         $tempProject = "$env:TEMP\cargo-warmup-$(Get-Random)"
@@ -330,21 +342,17 @@ clap = { version = "4.0", features = ["derive"] }
 "@
             Set-Content -Path "Cargo.toml" -Value $cargoToml -ErrorAction Stop
             
-            # This will download and cache common dependencies (with timeout)
-            $warmupJob = Start-Job -ScriptBlock { 
-                param($projectPath)
-                Set-Location $projectPath
-                & cargo check --quiet 2>$null
-            } -ArgumentList $tempProject
+            # This will download and cache common dependencies (with timeout, no Git required)
+            Write-Host "   Starting dependency download (timeout: 60 seconds)..." -ForegroundColor Gray
+            $warmupProcess = Start-Process -FilePath "cargo" -ArgumentList "check", "--quiet" -WorkingDirectory $tempProject -PassThru -WindowStyle Hidden
             
             # Wait up to 60 seconds for pre-warming
-            if (Wait-Job $warmupJob -Timeout 60) {
-                Receive-Job $warmupJob | Out-Null
+            if ($warmupProcess.WaitForExit(60000)) {
                 Write-Host "   Dependency cache pre-warmed successfully" -ForegroundColor Gray
             } else {
                 Write-Host "   Pre-warming timed out (this is optional)" -ForegroundColor Gray
+                $warmupProcess.Kill() | Out-Null
             }
-            Remove-Job $warmupJob -Force -ErrorAction SilentlyContinue
             
         } catch {
             Write-Host "   Pre-warming failed (this is optional): $($_.Exception.Message)" -ForegroundColor Gray
