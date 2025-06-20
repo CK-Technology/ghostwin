@@ -114,6 +114,14 @@ iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.
 
 **📖 Detailed Setup Guide**: Check [GUNPOWDER.md](GUNPOWDER.md) for step-by-step instructions!
 
+### Troubleshooting
+
+**⚠️ Installation Issues?** See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common solutions:
+- 🔧 **"Updating crates.io index" hangs** → Use `-PreBuilt` or `-FixCargo`
+- 🔗 **Network/firewall issues** → Corporate proxy configuration
+- 🛡️ **Permission denied errors** → Administrator privileges and antivirus exclusions
+- 📦 **Missing dependencies** → Automatic dependency installation guides
+
 ---
 
 ## 🧰 Toolkit

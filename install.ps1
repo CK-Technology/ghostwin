@@ -5,6 +5,8 @@ param(
     [switch]$SkipRust,
     [switch]$SkipBuild,
     [switch]$PreBuilt,
+    [switch]$FixCargo,
+    [switch]$SkipEnvConfig,
     [string]$InstallPath = "C:\ProgramData\CKTech\GhostWin",
     [switch]$Help
 )
@@ -25,11 +27,13 @@ Usage:
   iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -InstallPath "C:\Tools\GhostWin"
 
 Options:
-  -PreBuilt      Download pre-built binaries instead of compiling from source
-  -SkipRust      Skip Rust installation (if already installed)
-  -SkipBuild     Skip the build process (download source only)
-  -InstallPath   Custom installation directory
-  -Help          Show this help
+  -PreBuilt        Download pre-built binaries instead of compiling from source
+  -SkipRust        Skip Rust installation (if already installed)
+  -SkipBuild       Skip the build process (download source only)
+  -FixCargo        Reset Cargo configuration to fix index/network issues
+  -SkipEnvConfig   Skip automatic Rust/Cargo environment optimization
+  -InstallPath     Custom installation directory
+  -Help            Show this help
 
 Dependencies handled automatically:
 - Uses winget for Windows ADK/PE installation (with manual fallback)
@@ -40,6 +44,12 @@ Dependencies handled automatically:
 }
 
 $ErrorActionPreference = "Stop"
+
+# Handle FixCargo option first
+if ($FixCargo) {
+    Fix-CargoIssues
+    exit 0
+}
 
 Write-Host "*** GhostWin Installation Script ***" -ForegroundColor Cyan
 Write-Host "====================================" -ForegroundColor Cyan
@@ -54,6 +64,247 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 # Function to check if command exists
 function Test-Command($cmdname) {
     return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue)
+}
+
+# Function to fix common Cargo issues
+function Fix-CargoIssues {
+    Write-Host "FIXING: Attempting to fix common Cargo issues..." -ForegroundColor Yellow
+    
+    $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
+    
+    try {
+        # 1. Clear potentially corrupted registry index
+        $registryPath = "$cargoHome\registry"
+        if (Test-Path $registryPath) {
+            Write-Host "   Clearing Cargo registry cache..." -ForegroundColor Gray
+            Remove-Item $registryPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        # 2. Clear git database cache
+        $gitPath = "$cargoHome\git"
+        if (Test-Path $gitPath) {
+            Write-Host "   Clearing Cargo git cache..." -ForegroundColor Gray
+            Remove-Item $gitPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        # 3. Create or update Cargo config with better network settings
+        $configDir = "$cargoHome\config"
+        if (-not (Test-Path $configDir)) {
+            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        }
+        
+        $configFile = "$configDir\config.toml"
+        $configContent = @"
+[net]
+retry = 3
+git-fetch-with-cli = true
+offline = false
+
+[http]
+timeout = 300
+low-speed-limit = 10
+multiplexing = false
+
+[build]
+jobs = 1  # Reduce parallel jobs to avoid overwhelming slow connections
+"@
+        
+        Write-Host "   Creating optimized Cargo configuration..." -ForegroundColor Gray
+        Set-Content -Path $configFile -Value $configContent -Force
+        
+        # 4. Update Git configuration for Cargo
+        Write-Host "   Configuring Git for Cargo..." -ForegroundColor Gray
+        & git config --global http.postBuffer 524288000  # 500MB buffer
+        & git config --global http.lowSpeedLimit 0
+        & git config --global http.lowSpeedTime 999999
+        
+        Write-Host "SUCCESS: Cargo configuration reset complete!" -ForegroundColor Green
+        Write-Host "   Try running the installer again without -FixCargo" -ForegroundColor Gray
+        
+    } catch {
+        Write-Host "WARNING: Some Cargo fixes failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "   Manual fix: Delete '$cargoHome' and reinstall Rust" -ForegroundColor Gray
+    }
+}
+
+# Function to configure optimal Rust/Cargo environment for Windows
+function Configure-RustEnvironment {
+    Write-Host "CONFIGURING: Setting up optimal Rust/Cargo environment for Windows..." -ForegroundColor Yellow
+    
+    $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
+    
+    try {
+        # 1. Create Cargo config directory if it doesn't exist
+        $configDir = "$cargoHome\config"
+        if (-not (Test-Path $configDir)) {
+            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        }
+        
+        # 2. Create comprehensive Cargo configuration
+        $configFile = "$configDir\config.toml"
+        $configContent = @"
+# Optimized Cargo configuration for Windows builds
+[net]
+retry = 5                    # Retry failed network operations up to 5 times
+git-fetch-with-cli = true    # Use system Git instead of libgit2 (more reliable on Windows)
+offline = false              # Allow network access
+check-revoke = false         # Skip certificate revocation checks (faster, corporate networks)
+
+[http]
+timeout = 600                # 10 minute timeout for large downloads
+low-speed-limit = 1024       # Minimum 1KB/s (fail if slower)
+low-speed-time = 30          # Allow slow speeds for up to 30 seconds
+multiplexing = false         # Disable HTTP/2 multiplexing (avoids some Windows issues)
+ssl-version = "tlsv1.2"      # Force TLS 1.2 for compatibility
+
+[build]
+jobs = 2                     # Limit parallel compilation jobs (reduces memory usage)
+target-dir = "target"        # Use relative target directory
+incremental = true           # Enable incremental compilation for faster rebuilds
+
+[profile.release]
+opt-level = 2                # Optimize for speed but not at expense of compile time
+lto = "thin"                 # Thin link-time optimization (faster than "fat")
+codegen-units = 4            # Balance between compile time and runtime performance
+panic = "abort"              # Smaller binaries, faster startup
+
+[profile.dev]
+opt-level = 0                # No optimization for dev builds (faster compilation)
+debug = true                 # Include debug info
+split-debuginfo = "packed"   # Keep debug info in single file on Windows
+
+[registries.crates-io]
+protocol = "sparse"          # Use sparse registry protocol (faster, less bandwidth)
+
+[cargo-new]
+vcs = "none"                 # Don't initialize git by default in new projects
+
+[term]
+verbose = false              # Reduce noise in output
+color = "auto"               # Auto-detect color support
+"@
+        
+        Write-Host "   Creating optimized Cargo configuration..." -ForegroundColor Gray
+        Set-Content -Path $configFile -Value $configContent -Force
+        
+        # 3. Configure Git for optimal Cargo usage
+        Write-Host "   Configuring Git for Cargo compatibility..." -ForegroundColor Gray
+        
+        # Git network settings
+        & git config --global http.postBuffer 1048576000    # 1GB buffer for large repos
+        & git config --global http.lowSpeedLimit 1024       # 1KB/s minimum
+        & git config --global http.lowSpeedTime 30          # 30 second timeout
+        & git config --global http.sslVerify true           # Verify SSL certificates
+        & git config --global http.version HTTP/1.1         # Use HTTP/1.1 (more compatible)
+        
+        # Git performance settings
+        & git config --global core.preloadindex true        # Preload index for performance
+        & git config --global core.fscache true             # Enable filesystem cache on Windows
+        & git config --global gc.auto 256                   # Auto garbage collect less frequently
+        
+        # 4. Set up environment variables for this session
+        Write-Host "   Configuring environment variables..." -ForegroundColor Gray
+        
+        # Cargo environment variables
+        $env:CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+        $env:CARGO_NET_RETRY = "5"
+        $env:CARGO_HTTP_TIMEOUT = "600"
+        $env:CARGO_HTTP_LOW_SPEED_LIMIT = "1024"
+        $env:CARGO_HTTP_MULTIPLEXING = "false"
+        $env:CARGO_INCREMENTAL = "1"
+        $env:CARGO_TARGET_DIR = "target"
+        
+        # Rust compilation variables
+        $env:RUSTFLAGS = "-C target-cpu=native"              # Optimize for current CPU
+        $env:RUST_BACKTRACE = "1"                            # Enable backtraces for debugging
+        
+        # Windows-specific variables
+        $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = "link.exe"  # Explicit linker
+        
+        # Memory and performance settings
+        $logicalCores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+        $optimalJobs = [Math]::Max(1, [Math]::Min($logicalCores, 4))  # Cap at 4 for stability
+        $env:CARGO_BUILD_JOBS = $optimalJobs.ToString()
+        
+        Write-Host "   Configured for $optimalJobs parallel build jobs" -ForegroundColor Gray
+        
+        # 5. Configure Windows Defender exclusions (if running as admin)
+        if (([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+            Write-Host "   Configuring Windows Defender exclusions..." -ForegroundColor Gray
+            
+            try {
+                # Add Cargo and target directories to exclusions
+                Add-MpPreference -ExclusionPath $cargoHome -ErrorAction SilentlyContinue
+                Add-MpPreference -ExclusionPath "$env:USERPROFILE\.rustup" -ErrorAction SilentlyContinue
+                Add-MpPreference -ExclusionProcess "cargo.exe" -ErrorAction SilentlyContinue
+                Add-MpPreference -ExclusionProcess "rustc.exe" -ErrorAction SilentlyContinue
+                Add-MpPreference -ExclusionProcess "link.exe" -ErrorAction SilentlyContinue
+                
+                Write-Host "   Windows Defender exclusions added for Rust tools" -ForegroundColor Gray
+            } catch {
+                Write-Host "   Could not configure Windows Defender exclusions (this is optional)" -ForegroundColor Gray
+            }
+        }
+        
+        # 6. Verify Rust toolchain and update if needed
+        Write-Host "   Verifying Rust toolchain..." -ForegroundColor Gray
+        
+        if (Test-Command "rustup") {
+            # Update to latest stable
+            & rustup update stable 2>$null | Out-Null
+            
+            # Ensure MSVC target is installed
+            & rustup target add x86_64-pc-windows-msvc 2>$null | Out-Null
+            
+            # Add useful components
+            & rustup component add clippy 2>$null | Out-Null    # Linter
+            & rustup component add rustfmt 2>$null | Out-Null   # Formatter
+        }
+        
+        # 7. Pre-warm Cargo cache with common dependencies
+        Write-Host "   Pre-warming Cargo cache with common dependencies..." -ForegroundColor Gray
+        
+        $tempProject = "$env:TEMP\cargo-warmup-$(Get-Random)"
+        try {
+            # Create a temporary project with common dependencies
+            New-Item -ItemType Directory -Path $tempProject -Force | Out-Null
+            Push-Location $tempProject
+            
+            $cargoToml = @"
+[package]
+name = "cargo-warmup"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+clap = { version = "4.0", features = ["derive"] }
+"@
+            Set-Content -Path "Cargo.toml" -Value $cargoToml
+            
+            # This will download and cache common dependencies
+            & cargo check --quiet 2>$null | Out-Null
+            
+        } catch {
+            # Ignore errors in pre-warming
+        } finally {
+            Pop-Location
+            Remove-Item $tempProject -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-Host "SUCCESS: Rust/Cargo environment configured for optimal Windows performance!" -ForegroundColor Green
+        Write-Host "   Configuration includes:" -ForegroundColor Gray
+        Write-Host "   - Network retry and timeout settings" -ForegroundColor Gray
+        Write-Host "   - Optimized compilation profiles" -ForegroundColor Gray
+        Write-Host "   - Windows Defender exclusions (if admin)" -ForegroundColor Gray
+        Write-Host "   - Git compatibility settings" -ForegroundColor Gray
+        Write-Host "   - Memory and CPU optimization" -ForegroundColor Gray
+        
+    } catch {
+        Write-Host "WARNING: Some environment configuration failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "   Build should still work but may be slower" -ForegroundColor Gray
+    }
 }
 
 # Check for Visual Studio Build Tools (required for Windows builds)
@@ -339,6 +590,13 @@ if (-not $SkipRust) {
             exit 1
         }
     }
+    
+    # Configure Rust environment for optimal Windows builds (unless skipped)
+    if (-not $SkipEnvConfig) {
+        Configure-RustEnvironment
+    } else {
+        Write-Host "SKIPPING: Rust environment configuration (as requested)" -ForegroundColor Yellow
+    }
 }
 
 # Create installation directory
@@ -417,36 +675,92 @@ if (-not $PreBuilt) {
 
 # Build GhostWin (if not using pre-built and not skipping build)
 if (-not $PreBuilt -and -not $SkipBuild) {
-    Write-Host "BUILDING: Building GhostWin..." -ForegroundColor Yellow
+    Write-Host "BUILDING: Building GhostWin with optimized environment..." -ForegroundColor Yellow
     Push-Location $InstallPath
 
     try {
-        Write-Host "   Running cargo build --release (this may take several minutes)..." -ForegroundColor Gray
-        Write-Host "   Note: First build may take longer as it downloads dependencies..." -ForegroundColor Gray
+        Write-Host "   Using pre-configured Rust/Cargo environment for optimal performance" -ForegroundColor Gray
+        Write-Host "   Starting build process (this may take several minutes)..." -ForegroundColor Gray
+        Write-Host "   Tip: Environment is optimized to prevent 'Updating crates.io index' hangs" -ForegroundColor Gray
         
-        # Set cargo to use more verbose output for debugging
-        $env:CARGO_TERM_VERBOSE = "true"
+        # Run the build with comprehensive error capture
+        $buildAttempts = 0
+        $maxAttempts = 3
+        $buildSuccess = $false
         
-        # Run the build with better error capture
-        $buildResult = & cargo build --release 2>&1
-        
-        if ($LASTEXITCODE -eq 0 -and (Test-Path "target\release\ghostwin.exe")) {
-            Write-Host "SUCCESS: GhostWin built successfully!" -ForegroundColor Green
-        } else {
-            Write-Host "ERROR: Build failed!" -ForegroundColor Red
-            Write-Host "Build output:" -ForegroundColor Yellow
-            $buildResult | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+        do {
+            $buildAttempts++
+            if ($buildAttempts -gt 1) {
+                Write-Host "   Build attempt $buildAttempts of $maxAttempts..." -ForegroundColor Yellow
+                # Clear any partial build artifacts on retry
+                if (Test-Path "target") {
+                    Write-Host "   Cleaning previous build artifacts..." -ForegroundColor Gray
+                    & cargo clean 2>$null | Out-Null
+                }
+            }
             
-            # Suggest common solutions
+            Write-Host "   Running: cargo build --release" -ForegroundColor Gray
+            $buildResult = & cargo build --release 2>&1
+            $buildOutput = $buildResult -join "`n"
+            
+            if ($LASTEXITCODE -eq 0 -and (Test-Path "target\release\ghostwin.exe")) {
+                $buildSuccess = $true
+                Write-Host "SUCCESS: GhostWin built successfully!" -ForegroundColor Green
+                
+                # Verify the executable
+                $exeSize = (Get-Item "target\release\ghostwin.exe").Length
+                Write-Host "   Executable size: $([math]::Round($exeSize/1MB, 2)) MB" -ForegroundColor Gray
+                break
+            } else {
+                Write-Host "ERROR: Build attempt $buildAttempts failed!" -ForegroundColor Red
+                
+                # Analyze the error and provide specific guidance
+                if ($buildOutput -match "Updating crates.io index") {
+                    Write-Host "   Issue: Cargo index update hanging (despite optimizations)" -ForegroundColor Yellow
+                    Write-Host "   This indicates a severe network or corporate firewall issue" -ForegroundColor Gray
+                } elseif ($buildOutput -match "failed to get") {
+                    Write-Host "   Issue: Network connectivity problem" -ForegroundColor Yellow
+                } elseif ($buildOutput -match "linker.*not found") {
+                    Write-Host "   Issue: Missing Visual Studio Build Tools or linker" -ForegroundColor Yellow
+                } elseif ($buildOutput -match "permission denied" -or $buildOutput -match "access is denied") {
+                    Write-Host "   Issue: Permission denied - antivirus interference" -ForegroundColor Yellow
+                } elseif ($buildOutput -match "out of memory") {
+                    Write-Host "   Issue: Insufficient memory for compilation" -ForegroundColor Yellow
+                }
+                
+                if ($buildAttempts -lt $maxAttempts) {
+                    Write-Host "   Waiting 10 seconds before retry..." -ForegroundColor Gray
+                    Start-Sleep 10
+                }
+            }
+        } while ($buildAttempts -lt $maxAttempts -and -not $buildSuccess)
+        
+        if (-not $buildSuccess) {
             Write-Host ""
-            Write-Host "Common solutions:" -ForegroundColor Yellow
-            Write-Host "  1. Check internet connection (cargo needs to download dependencies)" -ForegroundColor Gray
-            Write-Host "  2. Try running with -PreBuilt flag to skip compilation" -ForegroundColor Gray
-            Write-Host "  3. Ensure you have sufficient disk space (build requires ~2GB)" -ForegroundColor Gray
+            Write-Host "Build output (last 25 lines):" -ForegroundColor Yellow
+            ($buildResult | Select-Object -Last 25) | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+            
+            Write-Host ""
+            Write-Host "SOLUTIONS: Try one of these approaches:" -ForegroundColor Yellow
+            Write-Host "  1. Run: install.ps1 -PreBuilt    (download pre-built binaries instead)" -ForegroundColor White
+            Write-Host "  2. Run: install.ps1 -FixCargo    (reset Cargo configuration and try again)" -ForegroundColor White
+            Write-Host "  3. Check internet connection and disable antivirus temporarily" -ForegroundColor Gray
+            Write-Host "  4. Ensure you have at least 4GB RAM and 3GB free disk space" -ForegroundColor Gray
+            Write-Host "  5. Run PowerShell as Administrator" -ForegroundColor Gray
+            Write-Host "  6. Try building manually: cd '$InstallPath' && cargo build --release" -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "If problems persist, use the -PreBuilt option for a quick install:" -ForegroundColor Green
+            Write-Host "  PowerShell: iwr -useb <script-url> | iex -PreBuilt" -ForegroundColor White
+            Write-Host ""
+            Write-Host "For detailed troubleshooting, see: https://github.com/CK-Technology/ghostwin/blob/main/TROUBLESHOOTING.md" -ForegroundColor Cyan
+            
             exit 1
         }
     } catch {
-        Write-Host "ERROR: Build process failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "ERROR: Build process failed with exception: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Try using pre-built binaries instead:" -ForegroundColor Green
+        Write-Host "  PowerShell: install.ps1 -PreBuilt" -ForegroundColor White
         exit 1
     } finally {
         Pop-Location
@@ -505,17 +819,27 @@ if (-not $executablePath -or -not (Test-Path $executablePath)) {
     }
 
     Write-Host ""
-    Write-Host "GhostWin Installation Complete!" -ForegroundColor Green
-    Write-Host "=================================" -ForegroundColor Green
+    Write-Host "*** GhostWin Installation Complete! ***" -ForegroundColor Green
+    Write-Host "=======================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Location: $InstallPath" -ForegroundColor Cyan
-    Write-Host "Executable: $executablePath" -ForegroundColor Cyan
+    Write-Host "Installation Details:" -ForegroundColor Cyan
+    Write-Host "  Location: $InstallPath" -ForegroundColor Gray
+    Write-Host "  Executable: $executablePath" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Quick Start:" -ForegroundColor Yellow
-    Write-Host "  cd `"$InstallPath`"" -ForegroundColor Gray
-    Write-Host "  `"$executablePath`" gui" -ForegroundColor Gray
+    Write-Host "Quick Start Commands:" -ForegroundColor Yellow
+    Write-Host "  Launch GUI:      `"$executablePath`" gui" -ForegroundColor White
+    Write-Host "  Build ISO:       `"$executablePath`" build --source-iso Windows11.iso" -ForegroundColor White
+    Write-Host "  Show Help:       `"$executablePath`" --help" -ForegroundColor White
     Write-Host ""
-    Write-Host "For help: `"$executablePath`" --help" -ForegroundColor Gray
+    Write-Host "Next Steps:" -ForegroundColor Yellow
+    Write-Host "  1. Place your Windows ISO in the GhostWin directory" -ForegroundColor Gray
+    Write-Host "  2. Launch the GUI to configure your deployment" -ForegroundColor Gray
+    Write-Host "  3. Build your custom WinPE image" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Ready to deploy!" -ForegroundColor Green
+    Write-Host "Documentation:" -ForegroundColor Cyan
+    Write-Host "  Setup Guide:     https://github.com/CK-Technology/ghostwin/blob/main/GUNPOWDER.md" -ForegroundColor Gray
+    Write-Host "  Troubleshooting: https://github.com/CK-Technology/ghostwin/blob/main/TROUBLESHOOTING.md" -ForegroundColor Gray
+    Write-Host "  Full Docs:       https://github.com/CK-Technology/ghostwin/blob/main/README.md" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Happy deploying! " -ForegroundColor Green
 }
