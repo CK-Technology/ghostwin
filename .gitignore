@@ -20,4 +20,5 @@ resources/**
 # Added by Cargo (already handled above, but preserved for clarity)
 /target
 
+TODO.md
 CLAUDE.md
