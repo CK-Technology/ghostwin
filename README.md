@@ -1,11 +1,14 @@
 # GhostWin 👻
 
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![Rust](https://img.shields.io/badge/Language-Rust-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Built_with-Rust-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Automation](https://img.shields.io/badge/Automation-Ready-00D4AA?style=for-the-badge&logo=automattic&logoColor=white)](https://github.com/CK-Technology/ghostwin)
+[![Security](https://img.shields.io/badge/Security-First-FF4444?style=for-the-badge&logo=shield&logoColor=white)](https://github.com/CK-Technology/ghostwin)
+[![CLI/GUI](https://img.shields.io/badge/Interface-CLI_+_GUI-7B68EE?style=for-the-badge&logo=terminal&logoColor=white)](https://github.com/CK-Technology/ghostwin)
 [![WinPE](https://img.shields.io/badge/WindowsPE-Powered-FF6B35?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/CK-Technology/ghostwin)
+[![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 
-![GhostWin Screenshot](assets/ghostwin.png)
+![GhostWin Logo](assets/icons/ghostwin.png)
 
 **GhostWin is your Windows setup automation sidekick, no more hackery to make a local Windows account - no account required!** 
 
@@ -114,13 +117,25 @@ iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.
 
 **📖 Detailed Setup Guide**: Check [GUNPOWDER.md](GUNPOWDER.md) for step-by-step instructions!
 
-### Troubleshooting
+---
 
-**⚠️ Installation Issues?** See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common solutions:
-- 🔧 **"Updating crates.io index" hangs** → Use `-PreBuilt` or `-FixCargo`
-- 🔗 **Network/firewall issues** → Corporate proxy configuration
-- 🛡️ **Permission denied errors** → Administrator privileges and antivirus exclusions
-- 📦 **Missing dependencies** → Automatic dependency installation guides
+## 🖥️ GUI Interface
+
+![GhostWin Screenshot](assets/ghostwin.png)
+
+The GhostWin GUI launches inside WinPE with a professional dark ocean blue theme and intuitive layout:
+
+**🎯 Main Features:**
+* **Installation Modes**: "Normal Install" (no modifications) and "Automated Install" (full automation)
+* **Tool Management Center**: System tools and automation scripts organized in dedicated sections
+* **VNC Remote Access**: Integrated controls with real-time connection status
+* **Professional Theme**: Deep ocean blue design optimized for deployment environments
+* **Real-time Status**: System information panel showing tool count and deployment readiness
+
+**🎨 UI Framework:**
+* **Slint**: ✅ **Implemented** – native WinPE rendering, minimal dependencies, pure Rust compatible
+* Modern dark theme with professional branding
+* Responsive layout optimized for various screen resolutions
 
 ---
 
@@ -136,24 +151,6 @@ GhostWin includes:
 * 🔧 NTPWEdit — Local account password reset
 * 🧪 CrystalDisk, GSmartControl — Disk health & benchmarks
 * 🔐 Optional: Netbird or Tailscale support for remote/mesh connectivity
-
----
-
-## 🖥️ GUI Interface
-
-The GhostWin GUI launches inside WinPE with a professional dark ocean blue theme and intuitive layout:
-
-**🎯 Main Features:**
-* **Installation Modes**: "Normal Install" (no modifications) and "Automated Install" (full automation)
-* **Tool Management Center**: System tools and automation scripts organized in dedicated sections
-* **VNC Remote Access**: Integrated controls with real-time connection status
-* **Professional Theme**: Deep ocean blue design optimized for deployment environments
-* **Real-time Status**: System information panel showing tool count and deployment readiness
-
-**🎨 UI Framework:**
-* **Slint**: ✅ **Implemented** – native WinPE rendering, minimal dependencies, pure Rust compatible
-* Modern dark theme with professional branding
-* Responsive layout optimized for various screen resolutions
 
 ---
 
@@ -220,10 +217,17 @@ MIT License — see LICENSE file.
 
 ---
 
+  
+## 🎯 Inspiration & Credits
+
+### Audit Scripts & WinPE Components
+The audit scripts and WinPE functionality in GhostWin were inspired by **[Windows Setup Helper](https://github.com/jmclaren7/windows-setup-helper)** created by **jmclaren7**. Windows Setup Helper provided valuable insights into automating Windows deployment and served as a foundation for our enhanced automation features.
+
 ## 🤝 Contributors
 
 * **Resolve Technology**
 * **Christopher Kelley** (@ghostkellz / CK Technology)
+* **Jmclaren7** - Creator of [Windows Setup Helper](https://github.com/jmclaren7/windows-setup-helper) which inspired this project
 
 ---
 
