@@ -1,7 +1,6 @@
 use anyhow::Result;
 use tracing::{info, error};
 use std::thread;
-use std::process::Command;
 use std::sync::{Arc, Mutex};
 use crate::config::ConfigManager;
 use crate::tools::{ToolDetector, ToolCategory};
@@ -82,8 +81,7 @@ pub async fn execute() -> Result<()> {
             });
         }
     });
-    
-    let ui_weak = ui.as_weak();
+
     let executor_clone = script_executor.clone();
     let tools_clone = detected_tools.clone();
     ui.on_launch_tool(move |path| {
@@ -109,8 +107,7 @@ pub async fn execute() -> Result<()> {
             error!("Tool not found in detected tools list: {}", path);
         }
     });
-    
-    let ui_weak = ui.as_weak();
+
     let executor_clone2 = script_executor.clone();
     let tools_clone2 = detected_tools.clone();
     ui.on_run_script(move |path| {
@@ -230,6 +227,7 @@ fn start_windows_installation(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn launch_tool_process(path: &str) -> Result<()> {
     info!("Launching tool at: {}", path);
     
@@ -297,12 +295,14 @@ fn launch_tool_process(path: &str) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn run_script_process(path: &str) -> Result<()> {
     // Same as launch_tool_process but with different logging
     info!("Running script: {}", path);
     launch_tool_process(path)
 }
 
+#[allow(dead_code)]
 fn run_pe_autorun_scripts() -> Result<()> {
     info!("Running PE autorun scripts");
     

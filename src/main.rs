@@ -10,6 +10,7 @@ mod tools;
 mod utils;
 mod vnc;
 mod executor;
+mod drivers;
 
 use cli::*;
 

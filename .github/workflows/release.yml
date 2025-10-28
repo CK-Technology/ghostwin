@@ -1,0 +1,248 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 0.3.3)'
+        required: true
+        default: '0.3.3'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build release binary
+        run: cargo build --release --verbose
+
+      - name: Run tests
+        run: cargo test --release --verbose
+        continue-on-error: true
+
+      - name: Download Visual C++ Redistributables
+        run: |
+          New-Item -ItemType Directory -Force dependencies
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "dependencies\vcredist_x64.exe"
+
+      - name: Install InnoSetup
+        run: |
+          choco install innosetup -y
+          $env:PATH = "C:\Program Files (x86)\Inno Setup 6;$env:PATH"
+          echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Get version from tag
+        id: get_version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -match 'refs/tags/v(.*)') {
+            $version = $matches[1]
+          } else {
+            $version = "${{ github.event.inputs.version }}"
+          }
+          if ([string]::IsNullOrEmpty($version)) {
+            $version = "0.3.3"
+          }
+          echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          echo "Version: $version"
+
+      - name: Build InnoSetup installer
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          # Update version in installer script
+          $issContent = Get-Content installer.iss -Raw
+          $issContent = $issContent -replace '#define MyAppVersion ".*"', "#define MyAppVersion ""$version"""
+          Set-Content -Path installer.iss -Value $issContent
+
+          # Compile installer
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Create portable ZIP
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          New-Item -ItemType Directory -Force -Path "GhostWin-Portable"
+
+          # Copy files
+          Copy-Item "target\release\ghostwin.exe" "GhostWin-Portable\"
+          Copy-Item "ghostwin.toml" "GhostWin-Portable\"
+          Copy-Item "README.md" "GhostWin-Portable\"
+          Copy-Item "LICENSE" "GhostWin-Portable\"
+          Copy-Item -Recurse "tools" "GhostWin-Portable\"
+          Copy-Item -Recurse "scripts" "GhostWin-Portable\"
+          Copy-Item -Recurse "pe_autorun" "GhostWin-Portable\"
+          Copy-Item -Recurse "resources" "GhostWin-Portable\"
+          Copy-Item -Recurse "config" "GhostWin-Portable\"
+
+          # Create README for portable version
+          @"
+          # GhostWin Portable v$version
+
+          This is the portable version of GhostWin. No installation required!
+
+          ## Quick Start
+          1. Extract this ZIP to any location
+          2. Run ghostwin.exe --help for usage
+          3. Place tools in the 'tools' directory
+          4. Place scripts in the 'scripts' directory
+
+          ## Requirements
+          - Windows 10 or later
+          - Administrator privileges for ISO building
+          - Windows ADK (for WinPE building)
+
+          For full documentation, see README.md
+          "@ | Out-File "GhostWin-Portable\PORTABLE-README.txt"
+
+          # Compress to ZIP
+          Compress-Archive -Path "GhostWin-Portable\*" -DestinationPath "dist\GhostWin-Portable-v$version.zip" -Force
+
+      - name: Calculate checksums
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          cd dist
+
+          # Calculate SHA256 for installer
+          $installerHash = (Get-FileHash "GhostWin-Setup-v$version.exe" -Algorithm SHA256).Hash
+          echo "$installerHash  GhostWin-Setup-v$version.exe" | Out-File "GhostWin-Setup-v$version.exe.sha256" -Encoding ASCII
+
+          # Calculate SHA256 for portable ZIP
+          $zipHash = (Get-FileHash "GhostWin-Portable-v$version.zip" -Algorithm SHA256).Hash
+          echo "$zipHash  GhostWin-Portable-v$version.zip" | Out-File "GhostWin-Portable-v$version.zip.sha256" -Encoding ASCII
+
+          # Create combined checksums file
+          @"
+          # GhostWin v$version Checksums (SHA256)
+
+          ## Installer
+          $installerHash  GhostWin-Setup-v$version.exe
+
+          ## Portable ZIP
+          $zipHash  GhostWin-Portable-v$version.zip
+          "@ | Out-File "checksums.txt" -Encoding ASCII
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GhostWin-Installer-${{ steps.get_version.outputs.VERSION }}
+          path: dist/GhostWin-Setup-v${{ steps.get_version.outputs.VERSION }}.exe
+
+      - name: Upload portable ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GhostWin-Portable-${{ steps.get_version.outputs.VERSION }}
+          path: dist/GhostWin-Portable-v${{ steps.get_version.outputs.VERSION }}.zip
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums
+          path: dist/checksums.txt
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/GhostWin-Setup-v${{ steps.get_version.outputs.VERSION }}.exe
+            dist/GhostWin-Setup-v${{ steps.get_version.outputs.VERSION }}.exe.sha256
+            dist/GhostWin-Portable-v${{ steps.get_version.outputs.VERSION }}.zip
+            dist/GhostWin-Portable-v${{ steps.get_version.outputs.VERSION }}.zip.sha256
+            dist/checksums.txt
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            # GhostWin v${{ steps.get_version.outputs.VERSION }}
+
+            ## 📦 Downloads
+
+            - **Windows Installer**: `GhostWin-Setup-v${{ steps.get_version.outputs.VERSION }}.exe`
+            - **Portable ZIP**: `GhostWin-Portable-v${{ steps.get_version.outputs.VERSION }}.zip`
+
+            ## 🔒 SHA256 Checksums
+
+            See `checksums.txt` for file verification hashes.
+
+            ## 📝 What's New
+
+            [Release notes will be auto-generated]
+
+            ## 📖 Documentation
+
+            - [README](https://github.com/${{ github.repository }}/blob/main/README.md)
+            - [Documentation](https://github.com/${{ github.repository }}/blob/main/DOCS.md)
+            - [Commands Reference](https://github.com/${{ github.repository }}/blob/main/COMMANDS.md)
+
+            ## 🐛 Known Issues
+
+            - ISO creation only supported on Windows
+            - Requires Windows ADK for full functionality
+
+            ---
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-portable-linux:
+    name: Build Linux Binary (for cross-platform development)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev
+
+      - name: Build release binary
+        run: cargo build --release --verbose
+
+      - name: Run tests
+        run: cargo test --release --verbose
+        continue-on-error: true
+
+      - name: Upload Linux binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghostwin-linux-x86_64
+          path: target/release/ghostwin

@@ -6,7 +6,9 @@ use crate::cli::GhostwinConfig;
 
 pub struct WimManager {
     mount_path: PathBuf,
+    #[allow(dead_code)]
     temp_dir: Option<TempDir>,
+    #[allow(dead_code)]
     config: GhostwinConfig,
     is_mounted: bool,
 }
@@ -55,14 +57,17 @@ impl WimManager {
                 bail!("DISM mount failed");
             }
         }
-        
+
         #[cfg(not(target_os = "windows"))]
         {
             bail!("WIM mounting is only supported on Windows");
         }
-        
-        self.is_mounted = true;
-        Ok(())
+
+        #[cfg(target_os = "windows")]
+        {
+            self.is_mounted = true;
+            Ok(())
+        }
     }
     
     pub async fn unmount_and_commit(&mut self) -> Result<()> {
@@ -237,10 +242,12 @@ impl WimManager {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn mount_path(&self) -> &Path {
         &self.mount_path
     }
-    
+
+    #[allow(dead_code)]
     pub fn is_mounted(&self) -> bool {
         self.is_mounted
     }

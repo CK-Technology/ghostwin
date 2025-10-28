@@ -159,17 +159,54 @@ GhostWin includes:
 GhostWin's `ghostwin build` CLI tool will:
 
 1. Mount the Windows boot.wim image
-2. Inject GhostWin helper + user scripts/tools
-3. Inject WinPE packages from ADK
-4. Modify registry if needed (e.g., DPI fix)
-5. Unmount and commit WIM changes
-6. Rebuild a bootable ISO using `oscdimg`
+2. **🔥 Auto-inject storage drivers (Intel VMD/RST, NVMe)**
+3. Inject GhostWin helper + user scripts/tools
+4. Inject WinPE packages from ADK
+5. Modify registry if needed (e.g., DPI fix)
+6. Unmount and commit WIM changes
+7. Rebuild a bootable ISO using `oscdimg`
+
+### 🚀 Two Options for Dell/Lenovo NVMe Systems:
+
+#### **Option 1: Disable Intel VMD in BIOS (Recommended - No Drivers Needed!)**
+
+**For fresh Windows installs, just change one BIOS setting:**
+
+**Dell:** BIOS → System Configuration → SATA Operation → **AHCI**
+**Lenovo:** BIOS → Devices → SATA Controller Mode → **AHCI**
+
+✅ **No drivers needed**
+✅ **Drives visible immediately**
+✅ **Simplest solution**
+
+See [**VMD Bypass Guide**](docs/VMD_BYPASS_GUIDE.md) for step-by-step instructions.
+
+#### **Option 2: Keep VMD Enabled + Auto-Load Drivers**
+
+**For systems requiring RAID or Intel Optane:**
+
+```powershell
+# Download Intel RST drivers automatically
+.\scripts\Download-Drivers.ps1 -IntelRST
+
+# Download all supported drivers
+.\scripts\Download-Drivers.ps1 -All
+```
+
+**Supported Hardware:**
+- ✅ Intel 15th Gen (Arrow Lake) with VMD
+- ✅ Micron 3400 NVMe (common in Dell 2024+ systems)
+- ✅ Samsung 980 PRO / 990 PRO / 970 EVO Plus
+- ✅ Dell Optiplex 3000/5000/7000/9000 series
+
+See [**Driver Guide**](docs/DRIVER_GUIDE.md) for driver setup details.
 
 ### Requirements:
 
 * Windows ADK + WinPE Add-on
 * Rust (1.78+) + `ghostwin` CLI
 * Base Windows 11 ISO
+* **Storage drivers** (auto-downloaded or manual)
 
 ---
 
@@ -234,9 +271,12 @@ The audit scripts and WinPE functionality in GhostWin were inspired by **[Window
 ## 🔗 Links & Resources
 
 **📖 Documentation**
-- [Setup Guide (GUNPOWDER.md)](GUNPOWDER.md) - Step-by-step setup with personality
-- [Technical Documentation (DOCS.md)](DOCS.md) - Complete technical reference
-- [Command Reference (COMMANDS.md)](COMMANDS.md) - CLI command documentation
+- [Setup Guide](docs/GUNPOWDER.md) - Step-by-step setup with personality
+- [Technical Documentation](docs/DOCS.md) - Complete technical reference
+- [Command Reference](docs/COMMANDS.md) - CLI command documentation
+- [**VMD Bypass Guide**](docs/VMD_BYPASS_GUIDE.md) - **Disable Intel VMD (no drivers needed!)** 🔥
+- [**Driver Guide**](docs/DRIVER_GUIDE.md) - **Auto-download drivers for Dell/Lenovo 15th Gen** ⚡
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
 
 **🌐 Online**
 - [CK Technology](https://cktechx.com) - Professional IT services

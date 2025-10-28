@@ -2,8 +2,10 @@ use anyhow::Result;
 use std::path::Path;
 use tracing::{info, warn, error};
 
+#[allow(dead_code)]
 pub struct RecoveryManager;
 
+#[allow(dead_code)]
 impl RecoveryManager {
     /// Clean up failed build artifacts
     pub async fn cleanup_failed_build(build_dir: &Path) -> Result<()> {

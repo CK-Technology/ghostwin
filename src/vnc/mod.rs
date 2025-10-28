@@ -227,6 +227,7 @@ impl VncManager {
         addresses
     }
     
+    #[allow(dead_code)]
     pub fn get_viewer_command(&self) -> Option<String> {
         // Look for TightVNC viewer
         let viewer_paths = [
@@ -260,6 +261,7 @@ impl Drop for VncManager {
 #[derive(Debug, Clone)]
 pub struct VncConnectionInfo {
     pub port: u16,
+    #[allow(dead_code)]
     pub password: String,
     pub ip_addresses: Vec<String>,
 }

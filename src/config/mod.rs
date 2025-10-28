@@ -32,6 +32,7 @@ impl ConfigManager {
         }
     }
     
+    #[allow(dead_code)]
     pub fn save_to_file<P: AsRef<Path>>(config: &GhostwinConfig, path: P) -> Result<()> {
         let content = if path.as_ref().extension().and_then(|s| s.to_str()) == Some("json") {
             serde_json::to_string_pretty(config)
@@ -47,6 +48,7 @@ impl ConfigManager {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn create_default_config<P: AsRef<Path>>(path: P) -> Result<()> {
         let config = GhostwinConfig::default();
         Self::save_to_file(&config, path)?;
@@ -67,7 +69,7 @@ impl ConfigManager {
         }
         
         // Validate VNC port range
-        if config.security.vnc_port == 0 || config.security.vnc_port > 65535 {
+        if config.security.vnc_port == 0 {
             return Err(anyhow::anyhow!("VNC port must be between 1 and 65535"));
         }
         

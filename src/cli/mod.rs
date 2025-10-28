@@ -37,6 +37,10 @@ pub struct BuildArgs {
     /// Configuration file path
     #[arg(short, long)]
     pub config: Option<String>,
+
+    /// Verify ISO integrity after creation
+    #[arg(long)]
+    pub verify: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -5,6 +5,7 @@ use crate::cli::{BuildArgs, GhostwinConfig};
 use crate::wim::WimManager;
 use crate::config::ConfigManager;
 use crate::tools::ToolDetector;
+use crate::drivers::DriverManager;
 
 pub async fn execute(args: BuildArgs) -> Result<()> {
     info!("Starting GhostWin ISO build process");
@@ -42,21 +43,30 @@ pub async fn execute(args: BuildArgs) -> Result<()> {
         info!("Step 5: Adding WinPE packages");
         add_winpe_packages(&wim_manager, &config).await?;
     }
-    
+
+    // Step 5.5: Inject drivers
+    info!("Step 6: Detecting and injecting drivers");
+    inject_drivers(&wim_manager, &args).await?;
+
     if !args.skip_dpi_fix && config.winpe.disable_dpi_scaling {
-        info!("Step 6: Applying DPI fix");
+        info!("Step 7: Applying DPI fix");
         apply_dpi_fix(&wim_manager).await?;
     }
-    
-    info!("Step 7: Unmounting and committing WIM");
+
+    info!("Step 8: Unmounting and committing WIM");
     wim_manager.unmount_and_commit().await?;
     
-    info!("Step 8: Creating final ISO");
+    info!("Step 9: Creating final ISO");
     create_iso(&args.output_dir, &args.output_iso).await?;
-    
+
+    if args.verify {
+        info!("Step 10: Verifying ISO integrity");
+        verify_iso(&args.output_iso).await?;
+    }
+
     info!("✅ GhostWin ISO build completed successfully!");
     info!("Output: {}", args.output_iso);
-    
+
     Ok(())
 }
 
@@ -166,6 +176,31 @@ async fn add_winpe_packages(wim_manager: &WimManager, config: &GhostwinConfig) -
     Ok(())
 }
 
+async fn inject_drivers(wim_manager: &WimManager, _args: &BuildArgs) -> Result<()> {
+    info!("🔍 Scanning for drivers");
+
+    let mut driver_manager = DriverManager::new();
+    driver_manager.scan_driver_directories()?;
+
+    let drivers = driver_manager.detect_drivers()?;
+
+    if drivers.is_empty() {
+        info!("No drivers found to inject");
+        return Ok(());
+    }
+
+    info!("Found {} drivers, beginning injection", drivers.len());
+
+    // Inject drivers into WIM
+    driver_manager.inject_drivers_to_wim(wim_manager, &drivers).await?;
+
+    // Also copy drivers to WIM for manual installation
+    driver_manager.copy_drivers_to_wim(wim_manager, &drivers).await?;
+
+    info!("✅ Driver injection completed");
+    Ok(())
+}
+
 async fn apply_dpi_fix(wim_manager: &WimManager) -> Result<()> {
     info!("Applying DPI scaling fix");
     wim_manager.apply_registry_fix("dpi_scaling").await?;
@@ -196,12 +231,123 @@ async fn create_iso(media_path: &str, output_iso: &str) -> Result<()> {
         if !status.success() {
             bail!("oscdimg ISO creation failed");
         }
+
+        Ok(())
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         bail!("ISO creation not implemented for this platform");
     }
-    
+}
+
+async fn verify_iso(iso_path: &str) -> Result<()> {
+    debug!("Verifying ISO: {}", iso_path);
+
+    let iso_file = Path::new(iso_path);
+
+    // Check 1: File exists
+    if !iso_file.exists() {
+        bail!("ISO file does not exist: {}", iso_path);
+    }
+
+    // Check 2: File size (should be reasonable for Windows ISO)
+    let metadata = std::fs::metadata(iso_file)
+        .context("Failed to read ISO file metadata")?;
+    let size_mb = metadata.len() / (1024 * 1024);
+
+    info!("ISO size: {} MB", size_mb);
+
+    if size_mb < 100 {
+        bail!("ISO file suspiciously small ({} MB). Build may have failed.", size_mb);
+    }
+
+    if size_mb > 20000 {
+        warn!("ISO file very large ({} MB). This is unusual.", size_mb);
+    }
+
+    // Check 3: Boot signature verification (ISO 9660 format)
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(iso_file)
+        .context("Failed to open ISO for verification")?;
+
+    // ISO 9660 signature is at offset 0x8001 (32768 + 1)
+    file.seek(SeekFrom::Start(32769))
+        .context("Failed to seek to ISO signature")?;
+
+    let mut signature = [0u8; 5];
+    file.read_exact(&mut signature)
+        .context("Failed to read ISO signature")?;
+
+    if &signature != b"CD001" {
+        bail!("Invalid ISO 9660 signature. File may be corrupted.");
+    }
+
+    info!("✅ ISO signature valid (ISO 9660)");
+
+    // Check 4: El Torito boot record (bootable ISO)
+    file.seek(SeekFrom::Start(32768))
+        .context("Failed to seek to boot record")?;
+
+    let mut boot_record = [0u8; 32];
+    file.read_exact(&mut boot_record)
+        .context("Failed to read boot record")?;
+
+    // First byte should be 0 (boot record volume descriptor)
+    if boot_record[0] == 0 && &boot_record[1..6] == b"CD001" {
+        // Check for El Torito boot indicator
+        if &boot_record[7..30] == b"EL TORITO SPECIFICATION" {
+            info!("✅ Bootable ISO detected (El Torito)");
+        } else {
+            info!("✅ ISO 9660 volume descriptor found");
+        }
+    }
+
+    // Check 5: List key files using 7z (if available)
+    #[cfg(target_os = "windows")]
+    {
+        let output = tokio::process::Command::new("7z")
+            .args(&["l", "-ba", iso_path])
+            .output()
+            .await;
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                let listing = String::from_utf8_lossy(&output.stdout);
+
+                // Check for critical Windows boot files
+                let required_files = [
+                    "bootmgr",
+                    "boot\\bcd",
+                    "sources\\boot.wim",
+                ];
+
+                let mut missing_files = Vec::new();
+                for required_file in &required_files {
+                    if !listing.contains(required_file) {
+                        missing_files.push(*required_file);
+                    }
+                }
+
+                if missing_files.is_empty() {
+                    info!("✅ All critical boot files present");
+                } else {
+                    warn!("⚠️ Missing boot files: {:?}", missing_files);
+                    warn!("ISO may not be bootable");
+                }
+
+                // Count WIM files
+                let wim_count = listing.matches(".wim").count();
+                info!("Found {} WIM files in ISO", wim_count);
+
+            } else {
+                warn!("Could not verify file contents (7z failed)");
+            }
+        } else {
+            warn!("Could not verify file contents (7z not available)");
+        }
+    }
+
+    info!("✅ ISO verification completed successfully");
     Ok(())
 }

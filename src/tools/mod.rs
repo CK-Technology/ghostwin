@@ -157,7 +157,7 @@ impl ToolDetector {
     }
     
     fn scan_all_drives(&self) -> Result<Vec<DetectedTool>> {
-        let mut tools = Vec::new();
+        let tools = Vec::new();
         
         #[cfg(target_os = "windows")]
         {

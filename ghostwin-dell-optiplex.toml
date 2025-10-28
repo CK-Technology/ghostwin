@@ -1,0 +1,269 @@
+# GhostWin Configuration - Dell Optiplex Edition
+# Pre-configured for Dell Optiplex systems (2020+) with Intel VMD and modern NVMe drives
+#
+# Usage: ghostwin build --config ghostwin-dell-optiplex.toml --source-iso Windows11.iso --output-iso GhostWin-Dell.iso
+#
+# Hardware Support:
+# - Dell Optiplex 3000/5000/7000/9000 series
+# - Intel 11th-15th Gen CPUs (including Arrow Lake)
+# - Intel VMD/RapidStorage Technology (RST)
+# - Micron 3400/2300/7450 NVMe drives
+# - Samsung 980 PRO / 990 PRO / 970 EVO Plus
+# - Dell BOSS-S1 controllers
+
+[iso]
+# WIM index for Windows Setup boot image
+wim_index = "Microsoft Windows Setup (amd64)"
+
+# Optional: Custom mount path (defaults to C:\temp\WIMMount on Windows)
+# mount_path = "C:\\Build\\WIMMount"
+
+# Optional: Custom ADK path if installed in non-standard location
+# adk_path = "C:\\Program Files (x86)\\Windows Kits\\10\\Assessment and Deployment Kit"
+
+[winpe]
+# WinPE packages optimized for Dell hardware deployment
+# These packages enable PowerShell, WMI, and storage management in WinPE
+packages = [
+    "WinPE-WMI",              # Windows Management Instrumentation
+    "WinPE-NetFX",            # .NET Framework support
+    "WinPE-Scripting",        # WSH scripting support
+    "WinPE-PowerShell",       # PowerShell for driver scripts
+    "WinPE-StorageWMI",       # Storage WMI provider (critical for NVMe)
+    "WinPE-DismCmdlets",      # DISM cmdlets for driver injection
+    "WinPE-SecureStartup",    # BitLocker support
+    "WinPE-EnhancedStorage"   # Enhanced storage drivers
+]
+
+# Disable DPI scaling for consistent display on Dell monitors
+disable_dpi_scaling = true
+
+# Set safe resolution for Dell displays (adjust if needed)
+# Common Dell resolutions: 1920x1080, 2560x1440, 3840x2160
+set_resolution = "1920x1080"
+
+[drivers]
+# Driver injection paths (GhostWin auto-detects drivers in these folders)
+# Drivers are loaded with priority-based ordering (storage drivers first)
+paths = [
+    "pe_autorun/drivers/Intel_RST",      # Intel RapidStorage (VMD drivers) - CRITICAL
+    "pe_autorun/drivers/Samsung_NVMe",   # Samsung NVMe drivers
+    "pe_autorun/drivers/Micron_NVMe",    # Micron 3400/2300/7450 drivers
+    "pe_autorun/drivers/Dell_Storage",   # Dell BOSS controllers
+    "pe_autorun/drivers/Network",        # Network adapters (optional)
+]
+
+# Auto-download drivers before building (requires internet)
+# Run: .\scripts\Download-Drivers.ps1 -IntelRST -Samsung
+auto_download = false
+
+# Inject all drivers found in paths (recommended for Dell systems)
+inject_all = true
+
+[tools]
+# Tool folders to include in WinPE environment
+# Organized by category for easy access
+folders = [
+    "tools/system",           # System utilities (Sysinternals, etc.)
+    "tools/hardware",         # Hardware diagnostics
+    "tools/network",          # Network configuration tools
+    "tools/drivers",          # Driver management utilities
+    "tools/remote_access",    # VNC, remote support tools
+    "tools/nirsoft",          # NirSoft utilities
+    "tools/install",          # Installation helpers
+    "tools/media",            # Image viewers, file browsers
+    "pe_autorun",             # Auto-run scripts and drivers
+    "scripts/basic",          # Basic automation scripts
+    "scripts/advanced",       # Advanced system setup scripts
+    "scripts/dell"            # Dell-specific utilities (optional)
+]
+
+# Automatically detect and catalog all executables
+auto_detect = true
+
+# Categories for GUI organization
+categories = [
+    "System Tools",
+    "Diagnostics",
+    "Network",
+    "Drivers",
+    "Automation",
+    "Remote Access"
+]
+
+[automation]
+# Automation scripts to run at different stages
+
+# Run during WinPE boot (before user interaction)
+boot_scripts = [
+    "pe_autorun/drivers/AutoLoad-Drivers.cmd",    # Auto-load storage drivers (CRITICAL)
+    # "pe_autorun/system_setup/Disable-IntelVMD.ps1",  # Optional: Auto-disable VMD in BIOS
+]
+
+# Run after user selects "Automated Install"
+install_scripts = [
+    "scripts/advanced/Partition-Disk.ps1",        # Automatic disk partitioning
+    "scripts/advanced/Apply-WindowsImage.ps1",    # Deploy Windows image
+    "scripts/advanced/Install-Drivers.ps1",       # Post-install driver injection
+]
+
+# Registry tweaks to apply during WinPE
+registry_tweaks = [
+    "scripts/registry/Disable-NetworkPrompt.reg", # Skip network setup
+    "scripts/registry/Local-Account-Only.reg",    # Force local account creation
+]
+
+[security]
+# Security and access control settings
+
+# Optional: Password protect GUI access (SHA-256 hash)
+# Generate with: echo -n "YourPassword" | sha256sum
+# password_hash = ""
+
+# Optional: Challenge-response secret for remote access
+# access_secret = "CHANGE_ME_IN_PRODUCTION"
+
+# VNC settings for remote assistance
+vnc_enabled = true
+vnc_port = 5950
+# vnc_password = "CHANGE_ME_IN_PRODUCTION"  # Set VNC password for security
+
+# Optional: Require password for driver injection
+require_auth_for_drivers = false
+
+# Optional: Log all tool executions for audit trail
+audit_logging = true
+
+[dell_specific]
+# Dell-specific optimizations and settings
+
+# Dell Command | Configure path (for BIOS automation)
+# Download from: https://www.dell.com/support/kbdoc/000177240
+dell_cctk_path = "pe_autorun/system_setup/dell_cctk/cctk.exe"
+
+# Auto-disable Intel VMD on boot (requires Dell Command Configure)
+auto_disable_vmd = false  # Set to true for automatic VMD bypass
+
+# Dell Service Tag integration (for driver lookup)
+# fetch_drivers_by_service_tag = true  # Future feature
+
+# Dell-specific BIOS settings to apply
+bios_settings = [
+    # "SataOperation=Ahci",              # Disable VMD (use AHCI mode)
+    # "SecureBoot=Disabled",             # Disable Secure Boot for troubleshooting
+    # "IntegratedNic=Enabled",           # Enable onboard network
+]
+
+# Dell hardware checks to perform
+hardware_checks = [
+    "VerifyNVMeVisible",     # Ensure NVMe drives are detected
+    "CheckVMDStatus",        # Report Intel VMD status
+    "DetectBOSSController",  # Check for Dell BOSS-S1
+]
+
+[performance]
+# Performance optimizations for faster deployment
+
+# Use parallel WIM operations (experimental)
+parallel_operations = false
+
+# Skip unnecessary packages to reduce ISO size
+minimal_winpe = false
+
+# Compress ISO for smaller file size (slower build)
+compress_iso = false
+
+# Number of concurrent driver injections
+driver_injection_threads = 4
+
+[validation]
+# Validation and verification settings
+
+# Verify ISO integrity after creation (uses --verify flag)
+verify_after_build = true
+
+# Pre-flight checks before starting build
+preflight_checks = [
+    "CheckAdministrator",    # Verify admin privileges
+    "CheckWindowsADK",       # Verify ADK installed
+    "CheckWinPEAddon",       # Verify WinPE add-on
+    "CheckOscdimg",          # Verify oscdimg.exe available
+    "Check7Zip",             # Verify 7-Zip installed
+    "CheckDiskSpace",        # Verify 20GB+ free space
+    "CheckDrivers",          # Verify Intel RST drivers present
+    "CheckBinary"            # Verify GhostWin binary built
+]
+
+# Fail build if critical checks fail
+strict_validation = true
+
+# Generate detailed build report
+generate_report = true
+report_path = "build-report.txt"
+
+[logging]
+# Logging configuration for troubleshooting
+
+# Log level: trace, debug, info, warn, error
+log_level = "info"
+
+# Log file path (in WinPE: X:\Windows\Temp\)
+log_file = "X:\\Windows\\Temp\\GhostWin.log"
+
+# Driver load log (critical for troubleshooting Dell NVMe issues)
+driver_log = "X:\\Windows\\Temp\\GhostWin-DriverLoad.log"
+
+# Verbose driver injection logging
+verbose_drivers = true
+
+# Log all DISM operations
+log_dism_operations = true
+
+# Keep logs after successful build
+preserve_logs = true
+
+# ==============================================================================
+# QUICK START INSTRUCTIONS FOR DELL OPTIPLEX
+# ==============================================================================
+#
+# 1. Download Intel RST drivers (for VMD/NVMe support):
+#    .\scripts\Download-Drivers.ps1 -IntelRST
+#
+# 2. (Optional) Download Samsung NVMe drivers:
+#    .\scripts\Download-Drivers.ps1 -Samsung
+#
+# 3. Run pre-flight check:
+#    .\scripts\Preflight-Check.ps1 -Detailed
+#
+# 4. Build ISO with this config:
+#    ghostwin build --config ghostwin-dell-optiplex.toml \
+#                   --source-iso C:\ISOs\Windows11.iso \
+#                   --output-dir C:\Build \
+#                   --output-iso C:\GhostWin-Dell-Optiplex.iso \
+#                   --verify
+#
+# 5. Flash to USB drive (use Rufus or dd):
+#    - Rufus: Select ISO, GPT, UEFI, FAT32
+#    - dd: sudo dd if=GhostWin-Dell-Optiplex.iso of=/dev/sdX bs=4M status=progress
+#
+# 6. Boot Dell Optiplex from USB:
+#    - Press F12 during POST for boot menu
+#    - Select USB drive
+#    - Wait 10 seconds for driver auto-load
+#    - Run Windows Setup - all NVMe drives visible!
+#
+# ==============================================================================
+# ALTERNATIVE: DISABLE INTEL VMD IN BIOS (NO DRIVERS NEEDED)
+# ==============================================================================
+#
+# For fresh Windows installations (wiping factory OS):
+#
+# 1. Boot into BIOS (press F2 during POST)
+# 2. Navigate to: System Configuration → SATA Operation
+# 3. Change from "RAID On" or "Intel Optane" to "AHCI"
+# 4. Save and Exit (F10)
+# 5. Boot from USB - all NVMe drives immediately visible!
+#
+# See: docs/VMD_BYPASS_GUIDE.md for detailed instructions
+#
+# ==============================================================================

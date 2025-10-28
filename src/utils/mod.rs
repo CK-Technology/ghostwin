@@ -47,6 +47,7 @@ pub fn ensure_admin_privileges() -> Result<()> {
 }
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 pub fn get_free_disk_space(drive: &str) -> Result<u64> {
     use winapi::um::fileapi::GetDiskFreeSpaceExW;
     use winapi::um::winnt::ULARGE_INTEGER;
@@ -73,14 +74,16 @@ pub fn get_free_disk_space(drive: &str) -> Result<u64> {
 }
 
 #[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
 pub fn get_free_disk_space(_drive: &str) -> Result<u64> {
     // For non-Windows systems, return a large number to avoid blocking
     Ok(100 * 1024 * 1024 * 1024) // 100GB
 }
 
 pub fn check_dependencies() -> Result<Vec<String>> {
+    #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
     let mut missing = Vec::new();
-    
+
     #[cfg(target_os = "windows")]
     {
         // Check for DISM
@@ -132,6 +135,7 @@ pub fn check_dependencies() -> Result<Vec<String>> {
 }
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 fn command_exists(cmd: &str) -> bool {
     std::process::Command::new("where")
         .arg(cmd)
@@ -141,6 +145,7 @@ fn command_exists(cmd: &str) -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
 fn command_exists(cmd: &str) -> bool {
     std::process::Command::new("which")
         .arg(cmd)
@@ -149,6 +154,7 @@ fn command_exists(cmd: &str) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(dead_code)]
 pub fn format_file_size(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size = bytes as f64;
@@ -166,6 +172,7 @@ pub fn format_file_size(bytes: u64) -> String {
     }
 }
 
+#[allow(dead_code)]
 pub fn validate_iso_file<P: AsRef<Path>>(path: P) -> Result<()> {
     let path = path.as_ref();
     

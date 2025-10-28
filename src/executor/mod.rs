@@ -1,11 +1,11 @@
 use anyhow::Result;
-use std::process::{Command, Stdio};
 use std::path::Path;
 use tracing::{info, error, debug};
 use crate::tools::{DetectedTool, ToolCategory};
 use crate::cli::GhostwinConfig;
 
 pub struct ScriptExecutor {
+    #[allow(dead_code)]
     config: GhostwinConfig,
 }
 
@@ -216,8 +216,9 @@ impl ScriptExecutor {
     
     fn execute_autoit_script(&self, path: &str) -> Result<ExecutionResult> {
         debug!("Executing AutoIt script: {}", path);
-        
+
         // Look for AutoIt executable
+        #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
         let autoit_paths = [
             "C:\\Program Files (x86)\\AutoIt3\\AutoIt3.exe",
             "C:\\Program Files\\AutoIt3\\AutoIt3.exe",
