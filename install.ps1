@@ -5,7 +5,6 @@
 #   irm https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 
 param(
-    [switch]$PreBuilt,
     [switch]$SkipRust,
     [switch]$SkipBuild,
     [switch]$SkipADK,
@@ -19,10 +18,11 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$explicitPrebuilt = $PSBoundParameters.ContainsKey('PreBuilt')
-if (-not $explicitPrebuilt) {
-    $PreBuilt = $true
-}
+$AdkPackageId = "Microsoft.WindowsADK"
+$AdkPackageVersion = "10.1.26100.2454"
+$WinPeAddonPackageId = "Microsoft.WindowsADK.WinPEAddon"
+$AdkDownloadUrl = "https://go.microsoft.com/fwlink/?linkid=2289980"
+$WinPeAddonDownloadUrl = "https://go.microsoft.com/fwlink/?linkid=2289981"
 
 function Write-Step($Message) {
     Write-Host "==> $Message" -ForegroundColor Cyan
@@ -89,27 +89,6 @@ function Invoke-DownloadFile {
     Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
 }
 
-function Get-ReleaseAsset {
-    try {
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/CK-Technology/ghostwin/releases/latest" -UseBasicParsing
-    } catch {
-        Write-Warn "Failed to query latest GitHub release: $($_.Exception.Message)"
-        return $null
-    }
-
-    $preferred = $release.assets | Where-Object {
-        $_.name -match 'ghostwin' -and (
-            $_.name -match 'windows' -or
-            $_.name -match 'win64' -or
-            $_.name -match 'x86_64-pc-windows-msvc' -or
-            $_.name -match '\.zip$' -or
-            $_.name -match '\.exe$'
-        )
-    } | Select-Object -First 1
-
-    return $preferred
-}
-
 function Get-SourceArchiveUrl {
     return "https://github.com/CK-Technology/ghostwin/archive/refs/heads/main.zip"
 }
@@ -173,7 +152,7 @@ function Ensure-BuildTools {
 
     Write-Warn "Visual Studio Build Tools with C++ workload not found"
     if (-not (Confirm-Choice -Prompt "Install Build Tools now?" -Default (-not $NonInteractive))) {
-        throw "Build Tools are required for source installation. Re-run with -PreBuilt or install Build Tools manually."
+        throw "Build Tools are required for source installation. Install Build Tools manually or re-run with -SkipBuild."
     }
 
     Install-BuildTools
@@ -187,14 +166,14 @@ function Install-ADKWithWinget {
         return $false
     }
 
-    Write-Step "Installing Windows ADK components with winget"
+    Write-Step "Installing Windows ADK 25H2 components with winget"
 
-    winget install -e --id Microsoft.WindowsADK --silent --accept-package-agreements --accept-source-agreements
+    winget install -e --id $AdkPackageId --version $AdkPackageVersion --silent --accept-package-agreements --accept-source-agreements
     if ($LASTEXITCODE -ne 0) {
         return $false
     }
 
-    winget install -e --id Microsoft.ADKPEAddon --silent --accept-package-agreements --accept-source-agreements
+    winget install -e --id $WinPeAddonPackageId --version $AdkPackageVersion --silent --accept-package-agreements --accept-source-agreements
     return ($LASTEXITCODE -eq 0)
 }
 
@@ -225,15 +204,15 @@ function Ensure-ADK {
     if (-not (Install-ADKWithWinget)) {
         Write-Warn "Winget install failed or is unavailable"
         Write-Host "  Install manually if needed:" -ForegroundColor Yellow
-        Write-Host "    ADK: https://go.microsoft.com/fwlink/?linkid=2289980" -ForegroundColor Gray
-        Write-Host "    WinPE Add-on: https://go.microsoft.com/fwlink/?linkid=2289981" -ForegroundColor Gray
+        Write-Host "    ADK: $AdkDownloadUrl" -ForegroundColor Gray
+        Write-Host "    WinPE Add-on: $WinPeAddonDownloadUrl" -ForegroundColor Gray
         if ($NonInteractive) {
             return
         }
 
         if (Confirm-Choice -Prompt "Open Microsoft download pages in your browser?" -Default $true) {
-            Start-Process "https://go.microsoft.com/fwlink/?linkid=2289980"
-            Start-Process "https://go.microsoft.com/fwlink/?linkid=2289981"
+            Start-Process $AdkDownloadUrl
+            Start-Process $WinPeAddonDownloadUrl
         }
         return
     }
@@ -278,24 +257,6 @@ function Reset-InstallDirectory {
         Get-ChildItem -Path $Path -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     } else {
         New-Item -ItemType Directory -Path $Path -Force | Out-Null
-    }
-}
-
-function Install-Prebuilt {
-    param([string]$Path)
-
-    $asset = Get-ReleaseAsset
-    if (-not $asset) {
-        throw "No suitable Windows release asset was found"
-    }
-
-    Write-Step "Installing pre-built GhostWin release"
-    $assetPath = Join-Path $Path $asset.name
-    Invoke-DownloadFile -Url $asset.browser_download_url -Destination $assetPath
-
-    if ($asset.name -match '\.zip$') {
-        Expand-Archive -Path $assetPath -DestinationPath $Path -Force
-        Remove-Item $assetPath -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -411,7 +372,6 @@ Fallback GitHub raw URL:
   irm https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 
 Options:
-  -PreBuilt        Prefer latest release binary/zip and skip source build when available (default)
   -SkipRust        Do not install Rust
   -SkipBuild       Download source but do not run cargo build
   -SkipADK         Do not prompt for ADK / WinPE installation
@@ -435,56 +395,19 @@ if (-not (Test-Admin)) {
     Write-Warn "Installer is not running elevated. GhostWin can still install, but dependency setup may be limited."
 }
 
-$requestedPrebuilt = $PreBuilt
-
 try {
     Reset-InstallDirectory -Path $InstallPath
 
-    if (-not $PreBuilt) {
-        if (-not $SkipBuild) {
-            Ensure-BuildTools
-            Ensure-Rust
-        }
+    if (-not $SkipBuild) {
+        Ensure-BuildTools
+        Ensure-Rust
     }
 
     Ensure-ADK
 
-    $installedFromPrebuilt = $false
-    if ($PreBuilt) {
-        try {
-            Install-Prebuilt -Path $InstallPath
-            $installedFromPrebuilt = $true
-        } catch {
-            Write-Warn "Pre-built install unavailable: $($_.Exception.Message)"
-            if ($explicitPrebuilt -and $requestedPrebuilt) {
-                throw
-            }
-
-            Write-Info "Falling back to source installation"
-            $PreBuilt = $false
-            if (-not $SkipBuild) {
-                Ensure-BuildTools
-                Ensure-Rust
-            }
-        }
-    } else {
-        try {
-            Install-Prebuilt -Path $InstallPath
-            $installedFromPrebuilt = $true
-            Write-Info "Pre-built release found and installed"
-        } catch {
-            Write-Warn "Pre-built install unavailable: $($_.Exception.Message)"
-            if ($requestedPrebuilt) {
-                throw
-            }
-        }
-    }
-
-    if (-not $installedFromPrebuilt) {
-        Install-SourceTree -Path $InstallPath
-        if (-not $SkipBuild) {
-            Build-FromSource -Path $InstallPath
-        }
+    Install-SourceTree -Path $InstallPath
+    if (-not $SkipBuild) {
+        Build-FromSource -Path $InstallPath
     }
 
     $executablePath = Get-InstalledExecutable -Path $InstallPath
