@@ -148,21 +148,59 @@ function Test-BuildToolsInstalled {
 
     try {
         $installations = & $vsWhere -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json 2>$null | ConvertFrom-Json
-        if (-not ($installations -and $installations.Count -gt 0)) {
-            return $false
-        }
-
-        # Also verify Windows SDK is installed (kernel32.lib required for linking)
-        $sdkLib = "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x64\kernel32.lib"
-        if (-not (Test-Path $sdkLib)) {
-            Write-Warn "Windows SDK not found - Build Tools installation incomplete"
-            return $false
-        }
-
-        return $true
+        return ($installations -and $installations.Count -gt 0)
     } catch {
         Write-Warn "Failed to inspect Visual Studio Build Tools: $($_.Exception.Message)"
         return $false
+    }
+}
+
+function Test-WindowsSdkInstalled {
+    # Check for any Windows SDK version with kernel32.lib
+    $sdkRoot = "C:\Program Files (x86)\Windows Kits\10\Lib"
+    if (-not (Test-Path $sdkRoot)) {
+        return $false
+    }
+    $kernel32 = Get-ChildItem -Path $sdkRoot -Filter "kernel32.lib" -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match "um\\x64" } |
+                Select-Object -First 1
+    return ($null -ne $kernel32)
+}
+
+function Install-WindowsSdk {
+    Write-Step "Installing Windows SDK 10.0.26100 (Windows 11 25H2)"
+
+    $installerPath = Join-Path $env:TEMP "winsdksetup.exe"
+    Invoke-DownloadFile -Url "https://go.microsoft.com/fwlink/?linkid=2349110" -Destination $installerPath
+
+    $arguments = "/quiet /norestart /features OptionId.DesktopCPPx64"
+    $process = Start-Process -FilePath $installerPath -ArgumentList $arguments -Wait -PassThru
+    Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+
+    if (@(0, 3010) -notcontains $process.ExitCode) {
+        throw "Windows SDK installer exited with code $($process.ExitCode)"
+    }
+
+    if ($process.ExitCode -eq 3010) {
+        Write-Warn "Windows SDK installed, but a reboot may be required"
+    }
+}
+
+function Ensure-WindowsSdk {
+    Write-Step "Checking Windows SDK"
+    if (Test-WindowsSdkInstalled) {
+        Write-Info "Windows SDK found"
+        return
+    }
+
+    Write-Warn "Windows SDK not found (kernel32.lib required for linking)"
+    if (-not (Confirm-Choice -Prompt "Install Windows SDK now?" -Default (-not $NonInteractive))) {
+        throw "Windows SDK is required for building. Install it manually or re-run with -SkipBuild."
+    }
+
+    Install-WindowsSdk
+    if (-not (Test-WindowsSdkInstalled)) {
+        throw "Windows SDK was not detected after installation"
     }
 }
 
@@ -172,7 +210,7 @@ function Install-BuildTools {
     $installerPath = Join-Path $env:TEMP "vs_buildtools.exe"
     Invoke-DownloadFile -Url "https://aka.ms/vs/17/release/vs_buildtools.exe" -Destination $installerPath
 
-    $arguments = "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621"
+    $arguments = "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
 
     $process = Start-Process -FilePath $installerPath -ArgumentList $arguments -Wait -PassThru
     Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
@@ -705,6 +743,7 @@ try {
 
     if (-not $SkipBuild) {
         Ensure-BuildTools
+        Ensure-WindowsSdk
         Ensure-Rust
     }
 
