@@ -541,9 +541,19 @@ function Build-FromSource {
             throw "cargo build --release failed with exit code $LASTEXITCODE - see log above"
         }
 
-        if (-not (Test-Path ".\target\release\ghostwin.exe")) {
+        # Search for the built executable - path varies by target triple
+        $exe = Get-ChildItem -Path ".\target" -Filter "ghostwin.exe" -Recurse -ErrorAction SilentlyContinue |
+               Where-Object { $_.FullName -match "release" } |
+               Select-Object -First 1
+
+        if (-not $exe) {
+            Write-Fail "Build completed but ghostwin.exe not found in target directory"
+            Write-Info "Target directory contents:"
+            Get-ChildItem -Path ".\target" -Recurse -Depth 2 | ForEach-Object { Write-Info "  $($_.FullName)" }
             throw "Build completed but ghostwin.exe not found"
         }
+
+        Write-Info "Built executable: $($exe.FullName)"
     } finally {
         Pop-Location
     }
