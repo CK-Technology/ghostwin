@@ -23,6 +23,7 @@ $AdkPackageVersion = "10.1.26100.2454"
 $WinPeAddonPackageId = "Microsoft.WindowsADK.WinPEAddon"
 $AdkDownloadUrl = "https://go.microsoft.com/fwlink/?linkid=2289980"
 $WinPeAddonDownloadUrl = "https://go.microsoft.com/fwlink/?linkid=2289981"
+$AdkInstallRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Assessment and Deployment Kit"
 $DeploymentToolsRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Assessment and Deployment Kit\Deployment Tools"
 $WinPeAmd64Root = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64"
 
@@ -213,9 +214,12 @@ function Install-ADKDirect {
         Invoke-DownloadFile -Url $AdkDownloadUrl -Destination $adkInstaller
         Invoke-DownloadFile -Url $WinPeAddonDownloadUrl -Destination $winPeInstaller
 
+        Write-Info "Target ADK install path: $AdkInstallRoot"
         Invoke-InstallerProcess -FilePath $adkInstaller -ArgumentList @(
             "/quiet"
             "/norestart"
+            "/installpath"
+            $AdkInstallRoot
             "/features"
             "OptionId.DeploymentTools"
         ) -DisplayName "Windows ADK $AdkPackageVersion"
