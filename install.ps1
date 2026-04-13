@@ -533,12 +533,19 @@ function Build-FromSource {
         Write-Info "Running: cargo build --release"
         Write-Info "Log file: $buildLog"
 
+        # Temporarily allow stderr from native commands (cargo writes progress to stderr)
+        $origErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
         # Stream output to console AND capture to log file
         & cargo build --release 2>&1 | Tee-Object -FilePath $buildLog
 
-        if ($LASTEXITCODE -ne 0) {
-            Write-Fail "cargo build failed with exit code $LASTEXITCODE"
-            throw "cargo build --release failed with exit code $LASTEXITCODE - see log above"
+        $buildExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $origErrorAction
+
+        if ($buildExitCode -ne 0) {
+            Write-Fail "cargo build failed with exit code $buildExitCode"
+            throw "cargo build --release failed with exit code $buildExitCode - see log above"
         }
 
         # Search for the built executable - path varies by target triple
