@@ -1,9 +1,9 @@
 ; GhostWin InnoSetup Installer Script
 ; Modern Windows deployment toolkit installer
-; Version: 0.3.3
+; Version: 0.3.4
 
 #define MyAppName "GhostWin"
-#define MyAppVersion "0.3.3"
+#define MyAppVersion "0.3.4"
 #define MyAppPublisher "Resolve Technology"
 #define MyAppURL "https://github.com/CK-Technology/ghostwin"
 #define MyAppExeName "ghostwin.exe"
@@ -69,9 +69,7 @@ Source: "resources\*"; DestDir: "{app}\resources"; Flags: ignoreversion recurses
 
 ; Documentation
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
-Source: "DOCS.md"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "COMMANDS.md"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "GUNPOWDER.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Visual C++ Redistributables (bundled)

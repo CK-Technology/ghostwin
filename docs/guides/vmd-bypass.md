@@ -266,8 +266,8 @@ wmic path Win32_IDEController get /format:list
 - Example: "dell optiplex 7090 disable vmd"
 
 ### GhostWin Documentation
-- [Driver Guide](DRIVER_GUIDE.md) - If keeping VMD enabled
-- [Troubleshooting](TROUBLESHOOTING.md) - Common issues
+- [Driver Guide](driver-guide.md) - If keeping VMD enabled
+- [Troubleshooting](../reference/troubleshooting.md) - Common issues
 
 ---
 

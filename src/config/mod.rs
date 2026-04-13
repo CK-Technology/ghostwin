@@ -64,8 +64,27 @@ impl ConfigManager {
     
     fn validate_config(config: &GhostwinConfig) -> Result<()> {
         // Validate WIM index format
-        if config.iso.wim_index.is_empty() {
+        if config.iso.wim_index.trim().is_empty() {
             return Err(anyhow::anyhow!("WIM index cannot be empty"));
+        }
+
+        let wim_index = config.iso.wim_index.trim().parse::<u32>()
+            .map_err(|_| anyhow::anyhow!("WIM index must be a positive numeric image index"))?;
+
+        if wim_index == 0 {
+            return Err(anyhow::anyhow!("WIM index must be greater than zero"));
+        }
+
+        if let Some(helper_source) = &config.iso.helper_source {
+            if helper_source.trim().is_empty() {
+                return Err(anyhow::anyhow!("Helper source path cannot be empty when configured"));
+            }
+        }
+
+        if let Some(windows_overlay_source) = &config.iso.windows_overlay_source {
+            if windows_overlay_source.trim().is_empty() {
+                return Err(anyhow::anyhow!("Windows overlay source path cannot be empty when configured"));
+            }
         }
         
         // Validate VNC port range
@@ -96,11 +115,25 @@ impl ConfigManager {
             if folder.is_empty() {
                 return Err(anyhow::anyhow!("Tool folder name cannot be empty"));
             }
-            
-            // Check for invalid characters
+
+            let is_absolute_windows_path = folder.len() > 2
+                && folder.as_bytes()[1] == b':'
+                && (folder.as_bytes()[2] == b'\\' || folder.as_bytes()[2] == b'/');
+            let is_absolute_path = Path::new(folder).is_absolute() || is_absolute_windows_path;
+
+            // Relative folder names should stay simple; absolute paths are allowed.
             let invalid_chars = ['<', '>', ':', '"', '|', '?', '*'];
-            if folder.chars().any(|c| invalid_chars.contains(&c)) {
+            if !is_absolute_path && folder.chars().any(|c| invalid_chars.contains(&c)) {
                 return Err(anyhow::anyhow!("Tool folder name contains invalid characters: {}", folder));
+            }
+        }
+
+        for path in config.phases.pe_system_setup_paths.iter()
+            .chain(config.phases.pe_driver_loader_paths.iter())
+            .chain(config.phases.post_install_logon_paths.iter())
+        {
+            if path.trim().is_empty() {
+                return Err(anyhow::anyhow!("Phase script paths cannot be empty"));
             }
         }
         
@@ -124,6 +157,10 @@ impl ConfigManager {
                 return Err(anyhow::anyhow!("VNC password must be no longer than 8 characters"));
             }
         }
+
+        if config.security.vnc_enabled && config.security.vnc_password.is_none() {
+            return Err(anyhow::anyhow!("VNC password must be configured when VNC is enabled"));
+        }
         
         // Validate WinPE package names
         for package in &config.winpe.packages {
@@ -133,5 +170,62 @@ impl ConfigManager {
         }
         
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ConfigManager;
+    use crate::cli::GhostwinConfig;
+
+    #[test]
+    fn default_config_is_valid() {
+        let config = GhostwinConfig::default();
+        assert!(ConfigManager::validate_config(&config).is_ok());
+    }
+
+    #[test]
+    fn rejects_non_numeric_wim_index() {
+        let mut config = GhostwinConfig::default();
+        config.iso.wim_index = "setup".to_string();
+
+        let error = ConfigManager::validate_config(&config).unwrap_err();
+        assert!(error.to_string().contains("WIM index must be a positive numeric image index"));
+    }
+
+    #[test]
+    fn allows_absolute_tool_paths() {
+        let mut config = GhostwinConfig::default();
+        config.tools.folders = vec![r"C:\\Helper\\Tools".to_string(), "/opt/ghostwin/tools".to_string()];
+
+        assert!(ConfigManager::validate_config(&config).is_ok());
+    }
+
+    #[test]
+    fn requires_password_when_vnc_enabled() {
+        let mut config = GhostwinConfig::default();
+        config.security.vnc_enabled = true;
+        config.security.vnc_password = None;
+
+        let error = ConfigManager::validate_config(&config).unwrap_err();
+        assert!(error.to_string().contains("VNC password must be configured"));
+    }
+
+    #[test]
+    fn rejects_empty_helper_source_when_configured() {
+        let mut config = GhostwinConfig::default();
+        config.iso.helper_source = Some("   ".to_string());
+
+        let error = ConfigManager::validate_config(&config).unwrap_err();
+        assert!(error.to_string().contains("Helper source path cannot be empty"));
+    }
+
+    #[test]
+    fn rejects_empty_phase_script_path() {
+        let mut config = GhostwinConfig::default();
+        config.phases.pe_system_setup_paths = vec!["  ".to_string()];
+
+        let error = ConfigManager::validate_config(&config).unwrap_err();
+        assert!(error.to_string().contains("Phase script paths cannot be empty"));
     }
 }

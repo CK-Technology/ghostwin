@@ -3,6 +3,122 @@ use std::path::Path;
 
 pub mod recovery;
 
+#[cfg(target_os = "windows")]
+pub fn ensure_windows_host(_action: &str) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn ensure_windows_host(action: &str) -> Result<()> {
+    Err(anyhow::anyhow!("{} is only supported on Windows hosts", action))
+}
+
+pub fn write_temp_reg_script(file_name: &str, content: &str) -> Result<std::path::PathBuf> {
+    #[cfg(target_os = "windows")]
+    let base_dir = Path::new("C:\\temp").to_path_buf();
+
+    #[cfg(not(target_os = "windows"))]
+    let base_dir = std::env::temp_dir();
+
+    std::fs::create_dir_all(&base_dir)?;
+    let file_path = base_dir.join(file_name);
+    std::fs::write(&file_path, content)?;
+    Ok(file_path)
+}
+
+pub fn import_reg_file(reg_path: &Path) -> Result<std::process::Output> {
+    ensure_windows_host("Registry import")?;
+    Ok(std::process::Command::new("reg")
+        .args(["import", reg_path.to_string_lossy().as_ref()])
+        .output()?)
+}
+
+pub async fn execute_tools_with_dry_run(
+    tools: &[crate::tools::DetectedTool],
+    executor: &crate::executor::ScriptExecutor,
+    dry_run: bool,
+    action_label: &str,
+) -> Result<()> {
+    for tool in tools {
+        tracing::info!("Executing {}: {}", action_label, tool.path.display());
+
+        if dry_run {
+            tracing::info!("Dry run: would execute {}", tool.path.display());
+            continue;
+        }
+
+        match executor.execute_script(&tool.path).await {
+            Ok(output) => {
+                tracing::info!("✅ Successfully executed: {}", tool.name);
+                if !output.trim().is_empty() {
+                    tracing::info!("Output: {}", output);
+                }
+            }
+            Err(e) => {
+                tracing::error!("❌ Failed to execute {}: {}", tool.name, e);
+                tracing::warn!("Continuing with next script...");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn resolve_detected_tools(
+    configured_paths: &[String],
+    detected_tools: &[crate::tools::DetectedTool],
+) -> Vec<crate::tools::DetectedTool> {
+    configured_paths
+        .iter()
+        .filter_map(|configured_path| {
+            let configured = Path::new(configured_path);
+            detected_tools
+                .iter()
+                .find(|tool| tool.path.ends_with(configured))
+                .cloned()
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_detected_tools;
+    use crate::tools::{DetectedTool, ToolCategory};
+    use std::path::PathBuf;
+
+    fn tool(path: &str, category: ToolCategory) -> DetectedTool {
+        DetectedTool {
+            name: PathBuf::from(path).file_name().unwrap().to_string_lossy().to_string(),
+            path: PathBuf::from(path),
+            category,
+            executable: true,
+            hidden: false,
+            auto_run: true,
+        }
+    }
+
+    #[test]
+    fn resolves_phase_paths_against_detected_tools() {
+        let detected = vec![
+            tool("./pe_autorun/system_setup/fontfix.reg", ToolCategory::PEAutoRun),
+            tool("./pe_autorun/drivers/Load-Drivers.ps1", ToolCategory::PEAutoRun),
+            tool("./scripts/basic/registry/disable_auto_logon.reg", ToolCategory::Logon),
+        ];
+
+        let resolved = resolve_detected_tools(
+            &[
+                "pe_autorun/system_setup/fontfix.reg".to_string(),
+                "scripts/basic/registry/disable_auto_logon.reg".to_string(),
+            ],
+            &detected,
+        );
+
+        assert_eq!(resolved.len(), 2);
+        assert_eq!(resolved[0].name, "fontfix.reg");
+        assert_eq!(resolved[1].name, "disable_auto_logon.reg");
+    }
+}
+
 pub fn ensure_admin_privileges() -> Result<()> {
     #[cfg(target_os = "windows")]
     {
@@ -57,7 +173,7 @@ pub fn get_free_disk_space(drive: &str) -> Result<u64> {
     let wide_path: Vec<u16> = OsStr::new(drive).encode_wide().chain(std::iter::once(0)).collect();
     
     unsafe {
-        let mut free_bytes = ULARGE_INTEGER { QuadPart: 0 };
+        let mut free_bytes: ULARGE_INTEGER = std::mem::zeroed();
         let result = GetDiskFreeSpaceExW(
             wide_path.as_ptr(),
             &mut free_bytes,
@@ -66,7 +182,7 @@ pub fn get_free_disk_space(drive: &str) -> Result<u64> {
         );
         
         if result != 0 {
-            Ok(free_bytes.QuadPart as u64)
+            Ok(*free_bytes.QuadPart())
         } else {
             Err(anyhow::anyhow!("Failed to get disk space for {}", drive))
         }
@@ -136,7 +252,7 @@ pub fn check_dependencies() -> Result<Vec<String>> {
 
 #[cfg(target_os = "windows")]
 #[allow(dead_code)]
-fn command_exists(cmd: &str) -> bool {
+pub fn command_exists(cmd: &str) -> bool {
     std::process::Command::new("where")
         .arg(cmd)
         .output()
@@ -146,7 +262,7 @@ fn command_exists(cmd: &str) -> bool {
 
 #[cfg(not(target_os = "windows"))]
 #[allow(dead_code)]
-fn command_exists(cmd: &str) -> bool {
+pub fn command_exists(cmd: &str) -> bool {
     std::process::Command::new("which")
         .arg(cmd)
         .output()

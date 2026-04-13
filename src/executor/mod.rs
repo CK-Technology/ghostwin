@@ -4,6 +4,9 @@ use tracing::{info, error, debug};
 use crate::tools::{DetectedTool, ToolCategory};
 use crate::cli::GhostwinConfig;
 
+#[cfg(target_os = "windows")]
+use std::process::{Command, Stdio};
+
 pub struct ScriptExecutor {
     #[allow(dead_code)]
     config: GhostwinConfig,

@@ -1,8 +1,8 @@
-use anyhow::Result;
-use std::process::{Command, Child};
-use std::path::Path;
-use tracing::{info, error, debug};
 use crate::cli::GhostwinConfig;
+use anyhow::Result;
+use std::path::Path;
+use std::process::{Child, Command};
+use tracing::{debug, error, info};
 
 pub struct VncManager {
     config: GhostwinConfig,
@@ -16,59 +16,67 @@ impl VncManager {
             server_process: None,
         }
     }
-    
+
     pub fn start_server(&mut self) -> Result<()> {
         if self.server_process.is_some() {
             info!("VNC server is already running");
             return Ok(());
         }
-        
-        info!("Starting VNC server on port {}", self.config.security.vnc_port);
-        
+
+        let password = self
+            .config
+            .security
+            .vnc_password
+            .as_deref()
+            .filter(|password| !password.is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("VNC password must be configured before starting the server")
+            })?;
+
+        info!(
+            "Starting VNC server on port {}",
+            self.config.security.vnc_port
+        );
+
         // Configure VNC password if provided
-        if let Some(ref password) = self.config.security.vnc_password {
-            if !password.is_empty() {
-                self.set_vnc_password(password)?;
-            }
-        }
-        
+        self.set_vnc_password(password)?;
+
         // Start TightVNC server
         let vnc_server_path = self.find_vnc_server()?;
-        
+
         #[cfg(target_os = "windows")]
         {
             let mut cmd = Command::new(&vnc_server_path);
             cmd.args([
                 "-run",
                 "-service",
-                &format!("-rfbport={}", self.config.security.vnc_port)
+                &format!("-rfbport={}", self.config.security.vnc_port),
             ]);
-            
+
             // Add password authentication if configured
-            if let Some(ref password) = self.config.security.vnc_password {
-                if !password.is_empty() {
-                    cmd.args(["-authentication", "1"]);
-                }
-            }
-            
+            cmd.args(["-authentication", "1"]);
+
             let child = cmd.spawn()?;
             self.server_process = Some(child);
             info!("VNC server started successfully");
         }
-        
+
         #[cfg(not(target_os = "windows"))]
         {
-            info!("VNC server would start: {} with port {}", 
-                vnc_server_path.display(), self.config.security.vnc_port);
+            info!(
+                "VNC server would start: {} with port {}",
+                vnc_server_path.display(),
+                self.config.security.vnc_port
+            );
             // Simulate a running process for cross-platform compatibility
         }
-        
+
         Ok(())
     }
-    
+
     pub fn stop_server(&mut self) -> Result<()> {
         info!("Stopping VNC server");
-        
+
         #[cfg(target_os = "windows")]
         {
             // Try to gracefully terminate first
@@ -90,22 +98,22 @@ impl VncManager {
                     }
                 }
             }
-            
+
             // Also kill any remaining TightVNC processes
             let _ = Command::new("taskkill")
                 .args(["/f", "/im", "tvnserver.exe"])
                 .output();
         }
-        
+
         #[cfg(not(target_os = "windows"))]
         {
             info!("VNC server would be stopped");
         }
-        
+
         self.server_process = None;
         Ok(())
     }
-    
+
     pub fn is_running(&mut self) -> bool {
         if let Some(ref mut child) = self.server_process {
             match child.try_wait() {
@@ -128,15 +136,20 @@ impl VncManager {
             false
         }
     }
-    
+
     pub fn get_connection_info(&self) -> VncConnectionInfo {
         VncConnectionInfo {
             port: self.config.security.vnc_port,
-            password: self.config.security.vnc_password.clone().unwrap_or_default(),
+            password: self
+                .config
+                .security
+                .vnc_password
+                .clone()
+                .unwrap_or_default(),
             ip_addresses: self.get_local_ip_addresses(),
         }
     }
-    
+
     fn find_vnc_server(&self) -> Result<std::path::PathBuf> {
         // Look for TightVNC server in expected locations
         let possible_paths = [
@@ -145,7 +158,7 @@ impl VncManager {
             "C:\\Program Files\\TightVNC\\tvnserver.exe",
             "C:\\Program Files (x86)\\TightVNC\\tvnserver.exe",
         ];
-        
+
         for path_str in &possible_paths {
             let path = Path::new(path_str);
             if path.exists() {
@@ -153,44 +166,50 @@ impl VncManager {
                 return Ok(path.to_path_buf());
             }
         }
-        
-        Err(anyhow::anyhow!("VNC server executable not found. Looked in: {:?}", possible_paths))
+
+        Err(anyhow::anyhow!(
+            "VNC server executable not found. Looked in: {:?}",
+            possible_paths
+        ))
     }
-    
+
+    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
     fn set_vnc_password(&self, password: &str) -> Result<()> {
         info!("Configuring VNC password");
-        
+
         #[cfg(target_os = "windows")]
         {
             // Use VNC password utility if available
-            let password_tool = Path::new("pe_autorun/services/vnc_server/vncserver/vncpassword/vncpassword.exe");
+            let password_tool =
+                Path::new("pe_autorun/services/vnc_server/vncserver/vncpassword/vncpassword.exe");
             if password_tool.exists() {
-                let output = Command::new(password_tool)
-                    .arg(password)
-                    .output()?;
-                
+                let output = Command::new(password_tool).arg(password).output()?;
+
                 if output.status.success() {
                     info!("VNC password configured successfully");
                 } else {
-                    error!("Failed to set VNC password: {}", String::from_utf8_lossy(&output.stderr));
+                    error!(
+                        "Failed to set VNC password: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
                 }
             } else {
                 debug!("VNC password tool not found, password will be set via registry");
                 // Could implement registry-based password setting here
             }
         }
-        
+
         #[cfg(not(target_os = "windows"))]
         {
-            info!("Would configure VNC password: {}", password);
+            debug!("Would configure VNC password on non-Windows host");
         }
-        
+
         Ok(())
     }
-    
+
     fn get_local_ip_addresses(&self) -> Vec<String> {
         let mut addresses = Vec::new();
-        
+
         #[cfg(target_os = "windows")]
         {
             if let Ok(output) = Command::new("ipconfig").output() {
@@ -207,7 +226,7 @@ impl VncManager {
                 }
             }
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             if let Ok(output) = Command::new("hostname").arg("-I").output() {
@@ -219,14 +238,14 @@ impl VncManager {
                 }
             }
         }
-        
+
         if addresses.is_empty() {
             addresses.push("localhost".to_string());
         }
-        
+
         addresses
     }
-    
+
     #[allow(dead_code)]
     pub fn get_viewer_command(&self) -> Option<String> {
         // Look for TightVNC viewer
@@ -235,17 +254,22 @@ impl VncManager {
             "C:\\Program Files\\TightVNC\\tvnviewer.exe",
             "C:\\Program Files (x86)\\TightVNC\\tvnviewer.exe",
         ];
-        
+
         for path_str in &viewer_paths {
             let path = Path::new(path_str);
             if path.exists() {
                 let connection_info = self.get_connection_info();
                 if let Some(ip) = connection_info.ip_addresses.first() {
-                    return Some(format!("{} {}:{}", path.display(), ip, connection_info.port));
+                    return Some(format!(
+                        "{} {}:{}",
+                        path.display(),
+                        ip,
+                        connection_info.port
+                    ));
                 }
             }
         }
-        
+
         None
     }
 }

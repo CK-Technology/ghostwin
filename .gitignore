@@ -22,3 +22,6 @@ resources/**
 
 TODO.md
 CLAUDE.md
+archive/
+target/ 
+tasks/

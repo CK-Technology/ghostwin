@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::Args;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +16,7 @@ pub struct BuildArgs {
     pub source_iso: String,
     
     /// Directory to extract the ISO to
-    #[arg(short, long)]
+    #[arg(short = 'd', long)]
     pub output_dir: String,
     
     /// Path for the final ISO output
@@ -43,11 +44,48 @@ pub struct BuildArgs {
     pub verify: bool,
 }
 
+#[derive(Args, Debug, Clone, Default)]
+pub struct LogonArgs {
+    /// Preview actions without modifying the host
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Apply host changes for this command
+    #[arg(long)]
+    pub force: bool,
+}
+
+#[derive(Args, Debug, Clone, Default)]
+pub struct SystemSetupArgs {
+    /// Preview actions without modifying the host
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Apply host changes for this command
+    #[arg(long)]
+    pub force: bool,
+}
+
+pub(crate) fn validate_host_change_mode(command_name: &str, dry_run: bool, force: bool) -> Result<()> {
+    match (dry_run, force) {
+        (true, true) => Err(anyhow::anyhow!(
+            "{} accepts either --dry-run or --force, but not both",
+            command_name
+        )),
+        (false, false) => Err(anyhow::anyhow!(
+            "{} requires --dry-run to preview or --force to modify the host",
+            command_name
+        )),
+        _ => Ok(()),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GhostwinConfig {
     pub iso: IsoConfig,
     pub winpe: WinPEConfig,
     pub tools: ToolsConfig,
+    pub phases: PhaseConfig,
     pub security: SecurityConfig,
 }
 
@@ -56,6 +94,8 @@ pub struct IsoConfig {
     pub wim_index: String,
     pub mount_path: Option<String>,
     pub adk_path: Option<String>,
+    pub helper_source: Option<String>,
+    pub windows_overlay_source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +112,13 @@ pub struct ToolsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhaseConfig {
+    pub pe_system_setup_paths: Vec<String>,
+    pub pe_driver_loader_paths: Vec<String>,
+    pub post_install_logon_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     pub password_hash: Option<String>,
     pub access_secret: Option<String>,
@@ -84,9 +131,11 @@ impl Default for GhostwinConfig {
     fn default() -> Self {
         Self {
             iso: IsoConfig {
-                wim_index: "Microsoft Windows Setup (amd64)".to_string(),
+                wim_index: "2".to_string(),
                 mount_path: None,
                 adk_path: None,
+                helper_source: Some("concept/windows-setup-helper-master/Helper".to_string()),
+                windows_overlay_source: Some("concept/windows-setup-helper-master/Windows".to_string()),
             },
             winpe: WinPEConfig {
                 packages: vec![
@@ -102,12 +151,17 @@ impl Default for GhostwinConfig {
                 folders: vec!["Tools".to_string(), "PEAutoRun".to_string(), "Logon".to_string()],
                 auto_detect: true,
             },
+            phases: PhaseConfig {
+                pe_system_setup_paths: vec!["pe_autorun/system_setup".to_string()],
+                pe_driver_loader_paths: vec!["pe_autorun/drivers".to_string()],
+                post_install_logon_paths: vec!["scripts/basic/registry/disable_auto_logon.reg".to_string()],
+            },
             security: SecurityConfig {
                 password_hash: None,
                 access_secret: None,
-                vnc_enabled: true,
+                vnc_enabled: false,
                 vnc_port: 5950,
-                vnc_password: Some("vncwatch".to_string()),
+                vnc_password: None,
             },
         }
     }

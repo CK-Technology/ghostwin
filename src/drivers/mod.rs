@@ -1,3 +1,7 @@
+#[cfg(target_os = "windows")]
+use anyhow::{Context, Result, bail};
+
+#[cfg(not(target_os = "windows"))]
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -26,6 +30,14 @@ pub enum DriverType {
     Sys,         // .sys kernel driver
     #[allow(dead_code)]
     Unknown,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DriverRiskSummary {
+    pub total: usize,
+    pub priority: usize,
+    pub missing_inf_for_sys: usize,
+    pub cab_packages: usize,
 }
 
 impl DriverManager {
@@ -185,6 +197,57 @@ impl DriverManager {
         Ok(priority_drivers)
     }
 
+    pub fn summarize_driver_risks(&self, drivers: &[DetectedDriver]) -> DriverRiskSummary {
+        let mut summary = DriverRiskSummary {
+            total: drivers.len(),
+            ..DriverRiskSummary::default()
+        };
+
+        for driver in drivers {
+            if self.is_priority_driver(&driver.name) {
+                summary.priority += 1;
+            }
+
+            match driver.driver_type {
+                DriverType::Sys if driver.inf_file.is_none() => {
+                    summary.missing_inf_for_sys += 1;
+                }
+                DriverType::Cab => {
+                    summary.cab_packages += 1;
+                }
+                _ => {}
+            }
+        }
+
+        summary
+    }
+
+    pub fn warn_about_driver_risks(&self, drivers: &[DetectedDriver]) {
+        let summary = self.summarize_driver_risks(drivers);
+
+        info!(
+            "Driver summary: {} total, {} priority storage, {} CAB packages, {} SYS without INF",
+            summary.total,
+            summary.priority,
+            summary.cab_packages,
+            summary.missing_inf_for_sys,
+        );
+
+        if summary.missing_inf_for_sys > 0 {
+            warn!(
+                "{} .sys driver(s) are missing matching .inf files and may be skipped during injection",
+                summary.missing_inf_for_sys
+            );
+        }
+
+        if summary.cab_packages > 0 {
+            warn!(
+                "{} CAB driver package(s) require extraction and INF discovery during injection",
+                summary.cab_packages
+            );
+        }
+    }
+
     /// Classify a file as a driver
     fn classify_driver(&self, path: &Path) -> Result<Option<DetectedDriver>> {
         let extension = path.extension()
@@ -299,7 +362,6 @@ impl DriverManager {
                     &format!("/Image:{}", mount_path.display()),
                     "/Add-Driver",
                     &format!("/Driver:{}", driver.path.display()),
-                    "/ForceUnsigned",
                 ])
                 .output()
                 .await
@@ -334,14 +396,16 @@ impl DriverManager {
         {
             // First extract the CAB to a temp location
             let temp_dir = std::env::temp_dir().join(format!("ghostwin_driver_{}", driver.name));
+            let driver_path = driver.path.to_string_lossy().into_owned();
+            let temp_dir_path = temp_dir.to_string_lossy().into_owned();
             std::fs::create_dir_all(&temp_dir)?;
 
             // Extract CAB
             let extract_output = tokio::process::Command::new("expand")
                 .args([
-                    driver.path.to_str().unwrap(),
+                    driver_path.as_str(),
                     "-F:*",
-                    temp_dir.to_str().unwrap(),
+                    temp_dir_path.as_str(),
                 ])
                 .output()
                 .await?;
@@ -416,5 +480,82 @@ impl DriverManager {
 impl Default for DriverManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DriverManager, DriverType};
+    use tempfile::tempdir;
+
+    #[test]
+    fn classifies_driver_types_and_links_sys_to_inf() {
+        let temp = tempdir().unwrap();
+        let inf_path = temp.path().join("iastorac.inf");
+        let sys_path = temp.path().join("iastorac.sys");
+        let cab_path = temp.path().join("vendor.cab");
+
+        std::fs::write(&inf_path, "[Version]").unwrap();
+        std::fs::write(&sys_path, "binary").unwrap();
+        std::fs::write(&cab_path, "cab").unwrap();
+
+        let manager = DriverManager::new();
+
+        let inf_driver = manager.classify_driver(&inf_path).unwrap().unwrap();
+        assert_eq!(inf_driver.driver_type, DriverType::Inf);
+        assert_eq!(inf_driver.inf_file.as_deref(), Some(inf_path.as_path()));
+
+        let sys_driver = manager.classify_driver(&sys_path).unwrap().unwrap();
+        assert_eq!(sys_driver.driver_type, DriverType::Sys);
+        assert_eq!(sys_driver.inf_file.as_deref(), Some(inf_path.as_path()));
+
+        let cab_driver = manager.classify_driver(&cab_path).unwrap().unwrap();
+        assert_eq!(cab_driver.driver_type, DriverType::Cab);
+        assert!(cab_driver.inf_file.is_none());
+    }
+
+    #[test]
+    fn prioritizes_storage_drivers_before_generic_ones() {
+        let temp = tempdir().unwrap();
+        let priority_driver = temp.path().join("iastorac.inf");
+        let generic_driver = temp.path().join("display.inf");
+
+        std::fs::write(&priority_driver, "[Version]").unwrap();
+        std::fs::write(&generic_driver, "[Version]").unwrap();
+
+        let mut manager = DriverManager::new();
+        manager.driver_paths.push(temp.path().to_path_buf());
+
+        let detected = manager.detect_drivers().unwrap();
+        assert_eq!(detected.len(), 2);
+        assert_eq!(detected[0].name, "iastorac.inf");
+        assert_eq!(detected[1].name, "display.inf");
+    }
+
+    #[test]
+    fn summarizes_driver_risks() {
+        let temp = tempdir().unwrap();
+        let priority_inf = temp.path().join("iastorac.inf");
+        let orphan_sys_dir = temp.path().join("orphan-sys");
+        let sys_without_inf = orphan_sys_dir.join("mystery.sys");
+        let cab_path = temp.path().join("vendor.cab");
+
+        std::fs::create_dir_all(&orphan_sys_dir).unwrap();
+        std::fs::write(&priority_inf, "[Version]").unwrap();
+        std::fs::write(&sys_without_inf, "binary").unwrap();
+        std::fs::write(&cab_path, "cab").unwrap();
+
+        let manager = DriverManager::new();
+        let drivers = vec![
+            manager.classify_driver(&priority_inf).unwrap().unwrap(),
+            manager.classify_driver(&sys_without_inf).unwrap().unwrap(),
+            manager.classify_driver(&cab_path).unwrap().unwrap(),
+        ];
+
+        let summary = manager.summarize_driver_risks(&drivers);
+        assert_eq!(summary.total, 3);
+        assert_eq!(summary.priority, 1);
+        assert_eq!(summary.missing_inf_for_sys, 1);
+        assert_eq!(summary.cab_packages, 1);
     }
 }

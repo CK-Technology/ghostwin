@@ -1,9 +1,11 @@
 # GhostWin Configuration File
 
 [iso]
-wim_index = "Microsoft Windows Setup (amd64)"
+wim_index = "2"
 # mount_path = "C:\\temp\\WIMMount"  # Optional: custom mount path
 # adk_path = "C:\\Program Files (x86)\\Windows Kits\\10\\Assessment and Deployment Kit"
+# helper_source = "concept/windows-setup-helper-master/Helper"
+# windows_overlay_source = "concept/windows-setup-helper-master/Windows"
 
 [winpe]
 packages = [
@@ -33,9 +35,25 @@ folders = [
 ]
 auto_detect = true
 
+[phases]
+pe_system_setup_paths = [
+    "pe_autorun/system_setup/explorer++.reg",
+    "pe_autorun/system_setup/fontfix.reg",
+    "pe_autorun/system_setup/taskmgr_prefs.reg",
+    "pe_autorun/system_setup/make_profile_folders.bat",
+    "pe_autorun/system_setup/Disable-IntelVMD.ps1"
+]
+pe_driver_loader_paths = [
+    "pe_autorun/drivers/AutoLoad-Drivers.cmd",
+    "pe_autorun/drivers/Load-Drivers.ps1"
+]
+post_install_logon_paths = [
+    "scripts/basic/registry/disable_auto_logon.reg"
+]
+
 [security]
 # password_hash = ""  # SHA-256 hash of access password
 # access_secret = ""  # Secret for challenge-response auth
-vnc_enabled = true
+vnc_enabled = false
 vnc_port = 5950
 # vnc_password = "CHANGE_ME_IN_PRODUCTION"

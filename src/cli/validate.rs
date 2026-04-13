@@ -8,6 +8,12 @@ pub async fn execute() -> Result<()> {
     
     let mut errors = 0;
     let mut warnings = 0;
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        warn!("⚠️  Validation is running on a non-Windows host; DISM, WIM, registry, and deployment checks are only partial here");
+        warnings += 1;
+    }
     
     // Check admin privileges
     match utils::ensure_admin_privileges() {

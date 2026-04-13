@@ -15,6 +15,13 @@ export struct InstallProgress {
     error: string,
 }
 
+export struct BuildRequest {
+    source_iso: string,
+    output_dir: string,
+    output_iso: string,
+    verify: bool,
+}
+
 // GhostWin Dark Ocean Theme Colors
 export global GhostTheme {
     // Primary colors - Deep Ocean Blue theme
@@ -50,9 +57,14 @@ export component GhostWinApp inherits Window {
     in-out property <bool> vnc_enabled: false;
     in-out property <string> vnc_status: "Disconnected";
     in-out property <InstallProgress> install_progress: { current_step: "", progress: 0.0, completed: false, error: "" };
+    in-out property <string> build_source_iso: "";
+    in-out property <string> build_output_dir: "build/gui-media";
+    in-out property <string> build_output_iso: "build/ghostwin-gui.iso";
+    in-out property <bool> build_verify: true;
     
     callback start_normal_install();
     callback start_automated_install();
+    callback start_build(BuildRequest);
     callback launch_tool(string);
     callback toggle_vnc();
     callback run_script(string);
@@ -313,7 +325,7 @@ export component GhostWinApp inherits Window {
                         alignment: center;
                         
                         Text {
-                            text: "👻 GhostWin Deployment Toolkit";
+                        text: "👻 GhostWin Deployment Toolkit";
                             font-size: 32px;
                             font-weight: 700;
                             color: GhostTheme.text-primary;
@@ -321,7 +333,7 @@ export component GhostWinApp inherits Window {
                         }
                         
                         Text {
-                            text: "Professional Windows deployment and automation";
+                        text: "Build deployment media and run phased Windows automation";
                             font-size: 16px;
                             color: GhostTheme.text-secondary;
                             horizontal-alignment: center;
@@ -335,11 +347,67 @@ export component GhostWinApp inherits Window {
                         }
                     }
                     
-                    // Installation Mode Cards
+                    // Primary Workflow Cards
                     HorizontalBox {
                         spacing: 30px;
                         alignment: center;
-                        
+
+                        // Build Media Card
+                        Rectangle {
+                            width: 280px;
+                            height: 220px;
+                            background: GhostTheme.secondary-bg;
+                            border-radius: 12px;
+                            border-width: 2px;
+                            border-color: GhostTheme.accent-cyan;
+
+                            TouchArea {
+                                clicked => { current_mode = "install"; }
+                            }
+
+                            VerticalBox {
+                                padding: 25px;
+                                spacing: 15px;
+                                alignment: center;
+
+                                Text {
+                                    text: "🧱";
+                                    font-size: 48px;
+                                    horizontal-alignment: center;
+                                }
+
+                                Text {
+                                    text: "Build Deployment Media";
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                    color: GhostTheme.text-primary;
+                                    horizontal-alignment: center;
+                                }
+
+                                Text {
+                                    text: "Create customized Windows ISO media with helper files, drivers, packages, and fixups";
+                                    font-size: 14px;
+                                    color: GhostTheme.text-secondary;
+                                    horizontal-alignment: center;
+                                    wrap: word-wrap;
+                                }
+
+                                Rectangle {
+                                    height: 35px;
+                                    background: GhostTheme.accent-cyan;
+                                    border-radius: 6px;
+
+                                    Text {
+                                        text: "Open Build Workflow";
+                                        color: white;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                         
                         // Normal Install Card
                         Rectangle {
                             width: 280px;
@@ -544,9 +612,96 @@ export component GhostWinApp inherits Window {
                 if current_mode == "install": VerticalBox {
                     spacing: 30px;
                     alignment: center;
+
+                    Rectangle {
+                        width: 560px;
+                        background: GhostTheme.secondary-bg;
+                        border-radius: 8px;
+
+                        VerticalBox {
+                            padding: 20px;
+                            spacing: 14px;
+
+                            Text {
+                                text: "🧱 Build ISO";
+                                font-size: 18px;
+                                font-weight: 700;
+                                color: GhostTheme.text-primary;
+                            }
+
+                            VerticalBox {
+                                spacing: 8px;
+
+                                Text {
+                                    text: "Source ISO";
+                                    font-size: 12px;
+                                    color: GhostTheme.text-secondary;
+                                }
+
+                                LineEdit {
+                                    text <=> root.build_source_iso;
+                                    placeholder-text: "Path to Windows ISO";
+                                }
+                            }
+
+                            VerticalBox {
+                                spacing: 8px;
+
+                                Text {
+                                    text: "Output Directory";
+                                    font-size: 12px;
+                                    color: GhostTheme.text-secondary;
+                                }
+
+                                LineEdit {
+                                    text <=> root.build_output_dir;
+                                    placeholder-text: "Working directory";
+                                }
+                            }
+
+                            VerticalBox {
+                                spacing: 8px;
+
+                                Text {
+                                    text: "Output ISO";
+                                    font-size: 12px;
+                                    color: GhostTheme.text-secondary;
+                                }
+
+                                LineEdit {
+                                    text <=> root.build_output_iso;
+                                    placeholder-text: "Output ISO path";
+                                }
+                            }
+
+                            HorizontalBox {
+                                spacing: 14px;
+                                alignment: center;
+
+                                CheckBox {
+                                    checked <=> root.build_verify;
+                                    text: "Verify output ISO";
+                                }
+
+                                Rectangle { width: 1px; }
+
+                                Button {
+                                    text: "Start Build";
+                                    clicked => {
+                                        start_build({
+                                            source_iso: root.build_source_iso,
+                                            output_dir: root.build_output_dir,
+                                            output_iso: root.build_output_iso,
+                                            verify: root.build_verify,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
                     
                     Text {
-                        text: "🚀 Windows Installation in Progress";
+                        text: install_progress.completed ? "✅ Workflow Complete" : "🧭 Deployment Workflow";
                         font-size: 28px;
                         font-weight: 700;
                         color: GhostTheme.text-primary;
@@ -577,27 +732,33 @@ export component GhostWinApp inherits Window {
                     if install_progress.error != "": Rectangle {
                         background: GhostTheme.accent-red;
                         border-radius: 6px;
-                        padding: 15px;
-                        
-                        Text {
-                            text: "❌ " + install_progress.error;
-                            color: white;
-                            font-size: 14px;
-                            horizontal-alignment: center;
+
+                        VerticalBox {
+                            padding: 15px;
+
+                            Text {
+                                text: "❌ " + install_progress.error;
+                                color: white;
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                            }
                         }
                     }
                     
                     if install_progress.completed: Rectangle {
                         background: GhostTheme.accent-cyan;
                         border-radius: 6px;
-                        padding: 15px;
-                        
-                        Text {
-                            text: "✅ Installation Complete!";
-                            color: white;
-                            font-size: 18px;
-                            font-weight: 700;
-                            horizontal-alignment: center;
+
+                        VerticalBox {
+                            padding: 15px;
+
+                            Text {
+                                text: "✅ Installation Complete!";
+                                color: white;
+                                font-size: 18px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                            }
                         }
                     }
                 }

@@ -48,7 +48,7 @@ impl ToolDetector {
         // Add explicitly configured folders
         for folder in &self.config.folders {
             let path = PathBuf::from(folder);
-            if path.exists() && path.is_dir() {
+            if path.exists() && path.is_dir() && !tool_dirs.contains(&path) {
                 tool_dirs.push(path);
             }
         }
@@ -73,12 +73,7 @@ impl ToolDetector {
                 continue;
             }
             
-            let category = match folder_name.as_str() {
-                name if name.contains("tools") => ToolCategory::Tool,
-                name if name.contains("pe_autorun") => ToolCategory::PEAutoRun,
-                name if name.contains("scripts") => ToolCategory::Logon,
-                _ => ToolCategory::Tool,
-            };
+            let category = Self::category_for_folder_name(folder_name);
             
             debug!("Scanning folder: {} as {:?}", folder_path.display(), category);
             tools.extend(self.scan_folder(&folder_path, category)?);
@@ -157,11 +152,11 @@ impl ToolDetector {
     }
     
     fn scan_all_drives(&self) -> Result<Vec<DetectedTool>> {
-        let tools = Vec::new();
+        #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
+        let mut tools = Vec::new();
         
         #[cfg(target_os = "windows")]
         {
-            use std::ffi::CString;
             use winapi::um::fileapi::GetLogicalDrives;
             
             let drives = unsafe { GetLogicalDrives() };
@@ -174,12 +169,7 @@ impl ToolDetector {
                     for folder_name in &self.config.folders {
                         let folder_path = Path::new(&drive_path).join("Helper").join(folder_name);
                         if folder_path.exists() {
-                            let category = match folder_name.as_str() {
-                                name if name.starts_with("Tools") => ToolCategory::Tool,
-                                name if name.starts_with("PEAutoRun") => ToolCategory::PEAutoRun,
-                                name if name.starts_with("Logon") => ToolCategory::Logon,
-                                _ => ToolCategory::Tool,
-                            };
+                            let category = Self::category_for_folder_name(folder_name);
                             
                             if let Ok(drive_tools) = self.scan_folder(&folder_path, category) {
                                 tools.extend(drive_tools);
@@ -198,6 +188,39 @@ impl ToolDetector {
             Some("exe") | Some("com") | Some("bat") | Some("cmd") => true,
             _ => false,
         }
+    }
+
+    pub(crate) fn category_for_folder_name(folder_name: &str) -> ToolCategory {
+        let leaf_name = Path::new(folder_name)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(folder_name);
+        let normalized = leaf_name
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .collect::<String>()
+            .to_ascii_lowercase();
+
+        if normalized.contains("peautorun") {
+            ToolCategory::PEAutoRun
+        } else if normalized.contains("logon") {
+            ToolCategory::Logon
+        } else {
+            ToolCategory::Tool
+        }
+    }
+
+    pub(crate) fn helper_destination_for_category(category: &ToolCategory) -> &'static str {
+        match category {
+            ToolCategory::Tool => "Helper/Tools",
+            ToolCategory::PEAutoRun => "Helper/PEAutoRun",
+            ToolCategory::Logon => "Helper/Logon",
+        }
+    }
+
+    pub(crate) fn helper_destination_for_folder(folder_name: &str) -> &'static str {
+        let category = Self::category_for_folder_name(folder_name);
+        Self::helper_destination_for_category(&category)
     }
     
     fn is_script(&self, path: &Path) -> bool {
@@ -254,4 +277,110 @@ pub struct ToolOptions {
     pub check_all: bool,
     pub collapse_tree: bool,
     pub default_checked: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ToolCategory, ToolDetector};
+    use crate::cli::ToolsConfig;
+    use tempfile::tempdir;
+
+    #[test]
+    fn classifies_default_tool_folders() {
+        assert!(matches!(
+            ToolDetector::category_for_folder_name("Tools"),
+            ToolCategory::Tool
+        ));
+        assert!(matches!(
+            ToolDetector::category_for_folder_name("PEAutoRun"),
+            ToolCategory::PEAutoRun
+        ));
+        assert!(matches!(
+            ToolDetector::category_for_folder_name("Logon"),
+            ToolCategory::Logon
+        ));
+    }
+
+    #[test]
+    fn classifies_absolute_paths_by_leaf_folder() {
+        assert!(matches!(
+            ToolDetector::category_for_folder_name(r"C:\\Helper\\PEAutoRun"),
+            ToolCategory::PEAutoRun
+        ));
+        assert!(matches!(
+            ToolDetector::category_for_folder_name("/mnt/helper/Logon"),
+            ToolCategory::Logon
+        ));
+    }
+
+    #[test]
+    fn maps_helper_destinations_by_category() {
+        assert_eq!(ToolDetector::helper_destination_for_folder("Tools"), "Helper/Tools");
+        assert_eq!(ToolDetector::helper_destination_for_folder("PEAutoRun"), "Helper/PEAutoRun");
+        assert_eq!(ToolDetector::helper_destination_for_folder("Logon"), "Helper/Logon");
+    }
+
+    #[test]
+    fn detects_tools_and_scripts_with_category_metadata() {
+        let temp = tempdir().unwrap();
+        let tools_dir = temp.path().join("Tools");
+        let autorun_dir = temp.path().join("PEAutoRun");
+        let logon_dir = temp.path().join("Logon");
+
+        std::fs::create_dir_all(&tools_dir).unwrap();
+        std::fs::create_dir_all(&autorun_dir).unwrap();
+        std::fs::create_dir_all(&logon_dir).unwrap();
+
+        std::fs::write(tools_dir.join("diskpart.exe"), "exe").unwrap();
+        std::fs::write(autorun_dir.join("launch.ps1"), "ps1").unwrap();
+        std::fs::write(logon_dir.join("finish.cmd"), "cmd").unwrap();
+        std::fs::write(tools_dir.join("notes.txt"), "ignored").unwrap();
+
+        let config = ToolsConfig {
+            folders: vec!["Tools".into(), "PEAutoRun".into(), "Logon".into()],
+            auto_detect: false,
+        };
+        let detector = ToolDetector::new(&config);
+
+        let detected = detector.detect_tools(temp.path()).unwrap();
+        assert_eq!(detected.len(), 3);
+
+        let tool = detected.iter().find(|tool| tool.name == "diskpart.exe").unwrap();
+        assert!(matches!(tool.category, ToolCategory::Tool));
+        assert!(tool.executable);
+        assert!(!tool.auto_run);
+
+        let autorun = detected.iter().find(|tool| tool.name == "launch.ps1").unwrap();
+        assert!(matches!(autorun.category, ToolCategory::PEAutoRun));
+        assert!(!autorun.executable);
+        assert!(autorun.auto_run);
+
+        let logon = detected.iter().find(|tool| tool.name == "finish.cmd").unwrap();
+        assert!(matches!(logon.category, ToolCategory::Logon));
+        assert!(logon.executable);
+        assert!(!logon.auto_run);
+    }
+
+    #[test]
+    fn parses_options_file_flags_and_default_checked_entries() {
+        let temp = tempdir().unwrap();
+        let tools_dir = temp.path().join("Tools");
+        std::fs::create_dir_all(&tools_dir).unwrap();
+        std::fs::write(
+            tools_dir.join(".Options.txt"),
+            "# comment\nCheckAll\nCollapseTree\ninstaller.ps1\nhelper.cmd\n",
+        )
+        .unwrap();
+
+        let config = ToolsConfig {
+            folders: vec!["Tools".into()],
+            auto_detect: false,
+        };
+        let detector = ToolDetector::new(&config);
+        let options = detector.load_options_file(&tools_dir).unwrap();
+
+        assert!(options.check_all);
+        assert!(options.collapse_tree);
+        assert_eq!(options.default_checked, vec!["installer.ps1", "helper.cmd"]);
+    }
 }

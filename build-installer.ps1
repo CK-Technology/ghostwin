@@ -3,7 +3,7 @@
 # Requires: Rust, InnoSetup 6
 
 param(
-    [string]$Version = "0.3.3",
+    [string]$Version = "0.3.4",
     [string]$Configuration = "release",
     [switch]$SkipBuild,
     [switch]$SkipTests,

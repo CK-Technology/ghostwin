@@ -22,7 +22,7 @@ A modern, secure, and Rust-powered Windows deployment toolkit designed for IT pr
 
 ### One-Line Install (Windows)
 ```powershell
-iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
+iwr -useb https://win.cktech.sh | iex -PreBuilt
 ```
 
 ### Launch GUI
@@ -35,7 +35,7 @@ ghostwin gui
 ghostwin build --source-iso Windows11.iso --output-iso GhostWin.iso
 ```
 
-**📖 Need detailed setup instructions?** Check out [GUNPOWDER.md](GUNPOWDER.md) for a step-by-step guide with personality!
+**📖 Need setup details?** Start with [docs/getting-started/setup.md](docs/getting-started/setup.md).
 
 ---
 
@@ -92,14 +92,17 @@ The installer automatically detects and installs required dependencies:
 
 ### Automated Installation (Recommended)
 ```powershell
-# Full installation with dependency handling
-iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
+# Recommended install path
+iwr -useb https://win.cktech.sh | iex -PreBuilt
 
-# Quick install with pre-built binaries (faster)
-iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -PreBuilt
+# Source build path
+iwr -useb https://win.cktech.sh | iex
+
+# Quiet pre-built install
+iwr -useb https://win.cktech.sh | iex -PreBuilt -NonInteractive
 
 # Custom installation path
-iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex -InstallPath "C:\Tools\GhostWin"
+iwr -useb https://win.cktech.sh | iex -PreBuilt -InstallPath "C:\Tools\GhostWin"
 ```
 
 **🎯 Installation Features:**
@@ -115,7 +118,7 @@ iwr -useb https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.
 3. **Build Project**: `cargo build --release`
 4. **Verify**: `./target/release/ghostwin.exe --version`
 
-**📖 Detailed Setup Guide**: Check [GUNPOWDER.md](GUNPOWDER.md) for step-by-step instructions!
+**📖 Detailed Setup Guide**: Check [docs/getting-started/setup.md](docs/getting-started/setup.md).
 
 ---
 
@@ -179,7 +182,7 @@ GhostWin's `ghostwin build` CLI tool will:
 ✅ **Drives visible immediately**
 ✅ **Simplest solution**
 
-See [**VMD Bypass Guide**](docs/VMD_BYPASS_GUIDE.md) for step-by-step instructions.
+See [**VMD Bypass Guide**](docs/guides/vmd-bypass.md) for step-by-step instructions.
 
 #### **Option 2: Keep VMD Enabled + Auto-Load Drivers**
 
@@ -199,7 +202,7 @@ See [**VMD Bypass Guide**](docs/VMD_BYPASS_GUIDE.md) for step-by-step instructio
 - ✅ Samsung 980 PRO / 990 PRO / 970 EVO Plus
 - ✅ Dell Optiplex 3000/5000/7000/9000 series
 
-See [**Driver Guide**](docs/DRIVER_GUIDE.md) for driver setup details.
+See [**Driver Guide**](docs/guides/driver-guide.md) for driver setup details.
 
 ### Requirements:
 
@@ -271,12 +274,15 @@ The audit scripts and WinPE functionality in GhostWin were inspired by **[Window
 ## 🔗 Links & Resources
 
 **📖 Documentation**
-- [Setup Guide](docs/GUNPOWDER.md) - Step-by-step setup with personality
-- [Technical Documentation](docs/DOCS.md) - Complete technical reference
-- [Command Reference](docs/COMMANDS.md) - CLI command documentation
-- [**VMD Bypass Guide**](docs/VMD_BYPASS_GUIDE.md) - **Disable Intel VMD (no drivers needed!)** 🔥
-- [**Driver Guide**](docs/DRIVER_GUIDE.md) - **Auto-download drivers for Dell/Lenovo 15th Gen** ⚡
-- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Setup](docs/getting-started/setup.md)
+- [Architecture](docs/architecture.md)
+- [Windows Build](docs/windows-build.md)
+- [Command Reference](docs/reference/commands.md)
+- [Configuration Reference](docs/reference/configuration.md)
+- [Troubleshooting](docs/reference/troubleshooting.md)
+- [**VMD Bypass Guide**](docs/guides/vmd-bypass.md)
+- [**Driver Guide**](docs/guides/driver-guide.md)
+- [Project Docs Index](docs/project/index.md)
 
 **🌐 Online**
 - [CK Technology](https://cktechx.com) - Professional IT services

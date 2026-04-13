@@ -53,7 +53,7 @@ Create a standalone Windows installer that doesn't require end-users to install 
 ```iss
 [Setup]
 AppName=GhostWin
-AppVersion=0.3.3
+AppVersion=0.3.4
 AppPublisher=Resolve Technology
 AppPublisherURL=https://github.com/CK-Technology/ghostwin
 DefaultDirName={commonpf}\GhostWin
@@ -126,7 +126,7 @@ end;
 ```powershell
 # build-installer.ps1
 param(
-    [string]$Version = "0.3.3"
+    [string]$Version = "0.3.4"
 )
 
 Write-Host "Building GhostWin Installer v$Version" -ForegroundColor Cyan
