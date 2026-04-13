@@ -204,25 +204,103 @@ function Ensure-BuildTools {
     }
 }
 
+function Reset-InstallerState {
+    Write-Info "Preparing Windows Installer service..."
+
+    # Kill any hung msiexec or previous ADK installer processes
+    Get-Process -Name msiexec -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-Process -Name adksetup -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-Process -Name adkwinpesetup -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+
+    # Restart Windows Installer service
+    Stop-Service msiserver -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+    Set-Service msiserver -StartupType Manual -ErrorAction SilentlyContinue
+    Start-Service msiserver -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+
+    # Clean up temp installer files from previous attempts
+    Remove-Item "$env:TEMP\adksetup*" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$env:TEMP\adkwinpe*" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$env:TEMP\adk*.log" -Force -ErrorAction SilentlyContinue
+}
+
 function Install-ADKDirect {
     Write-Step "Installing Windows ADK 25H2 components"
 
+    # Reset installer state to avoid error 1000
+    Reset-InstallerState
+
     $adkInstaller = Join-Path $env:TEMP "adksetup.exe"
     $winPeInstaller = Join-Path $env:TEMP "adkwinpesetup.exe"
+    $adkLog = Join-Path $env:TEMP "adk_install.log"
+    $winPeLog = Join-Path $env:TEMP "adkwinpe_install.log"
 
     try {
+        # Download installers
+        Write-Info "Downloading ADK installer..."
         Invoke-DownloadFile -Url $AdkDownloadUrl -Destination $adkInstaller
+
+        if (-not (Test-Path $adkInstaller) -or (Get-Item $adkInstaller).Length -lt 1MB) {
+            throw "ADK installer download failed or is corrupt"
+        }
+
+        Write-Info "Downloading WinPE add-on installer..."
         Invoke-DownloadFile -Url $WinPeAddonDownloadUrl -Destination $winPeInstaller
 
-        Write-Info "Target ADK install path: $AdkInstallRoot"
-        $adkArgs = "/quiet /norestart /installpath `"$AdkInstallRoot`" /features OptionId.DeploymentTools"
-        Invoke-InstallerProcess -FilePath $adkInstaller -ArgumentList $adkArgs -DisplayName "Windows ADK $AdkPackageVersion"
+        if (-not (Test-Path $winPeInstaller) -or (Get-Item $winPeInstaller).Length -lt 1MB) {
+            throw "WinPE add-on installer download failed or is corrupt"
+        }
+
+        # Install ADK base - use default path, add logging, disable CEIP
+        Write-Info "Installing Windows ADK (this may take several minutes)..."
+        $adkArgs = "/quiet /norestart /ceip off /log `"$adkLog`" /features OptionId.DeploymentTools"
+        $adkProcess = Start-Process -FilePath $adkInstaller -ArgumentList $adkArgs -Wait -PassThru
+
+        if ($adkProcess.ExitCode -notin @(0, 3010)) {
+            $logTail = if (Test-Path $adkLog) { Get-Content $adkLog -Tail 30 -ErrorAction SilentlyContinue | Out-String } else { "No log file" }
+            throw "ADK installer exited with code $($adkProcess.ExitCode)`nLog:`n$logTail"
+        }
+
+        if ($adkProcess.ExitCode -eq 3010) {
+            Write-Warn "ADK installed but a reboot may be required"
+        }
+
+        # Verify ADK actually installed before continuing
+        $retryCount = 0
+        while (-not (Test-AdkDeploymentToolsInstalled) -and $retryCount -lt 15) {
+            Start-Sleep -Seconds 2
+            $retryCount++
+        }
 
         if (-not (Test-AdkDeploymentToolsInstalled)) {
             throw "Windows ADK Deployment Tools were not detected after installation"
         }
 
-        Invoke-InstallerProcess -FilePath $winPeInstaller -ArgumentList "/quiet /norestart" -DisplayName "Windows PE add-on $AdkPackageVersion"
+        Write-Info "ADK base installed successfully"
+
+        # Wait for registry and file system to settle before WinPE install
+        Write-Info "Waiting for ADK registration to complete..."
+        Start-Sleep -Seconds 10
+        Reset-InstallerState
+
+        # Install WinPE add-on
+        Write-Info "Installing Windows PE add-on (this may take several minutes)..."
+        $winPeArgs = "/quiet /norestart /ceip off /log `"$winPeLog`" /features OptionId.WindowsPreinstallationEnvironment"
+        $winPeProcess = Start-Process -FilePath $winPeInstaller -ArgumentList $winPeArgs -Wait -PassThru
+
+        if ($winPeProcess.ExitCode -notin @(0, 3010)) {
+            $logTail = if (Test-Path $winPeLog) { Get-Content $winPeLog -Tail 30 -ErrorAction SilentlyContinue | Out-String } else { "No log file" }
+            throw "WinPE add-on installer exited with code $($winPeProcess.ExitCode)`nLog:`n$logTail"
+        }
+
+        if ($winPeProcess.ExitCode -eq 3010) {
+            Write-Warn "WinPE add-on installed but a reboot may be required"
+        }
+
+        Write-Info "Windows ADK and WinPE add-on installed successfully"
+
     } finally {
         Remove-Item $adkInstaller -Force -ErrorAction SilentlyContinue
         Remove-Item $winPeInstaller -Force -ErrorAction SilentlyContinue
