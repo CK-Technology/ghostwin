@@ -523,12 +523,26 @@ function Build-FromSource {
     }
 
     Write-Step "Building GhostWin from source"
+    Write-Info "Build directory: $Path"
+    Write-Info "Contents:"
+    Get-ChildItem -Path $Path -Force | Select-Object -First 10 | ForEach-Object { Write-Info "  $($_.Name)" }
+
+    $buildLog = Join-Path $Path "build.log"
     Push-Location $Path
     try {
-        $output = & cargo build --release 2>&1
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path ".\target\release\ghostwin.exe")) {
-            $tail = ($output | Select-Object -Last 30) -join [Environment]::NewLine
-            throw "cargo build --release failed`n$tail"
+        Write-Info "Running: cargo build --release"
+        Write-Info "Log file: $buildLog"
+
+        # Stream output to console AND capture to log file
+        & cargo build --release 2>&1 | Tee-Object -FilePath $buildLog
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "cargo build failed with exit code $LASTEXITCODE"
+            throw "cargo build --release failed with exit code $LASTEXITCODE - see log above"
+        }
+
+        if (-not (Test-Path ".\target\release\ghostwin.exe")) {
+            throw "Build completed but ghostwin.exe not found"
         }
     } finally {
         Pop-Location
