@@ -227,61 +227,43 @@ function Reset-InstallerState {
 }
 
 function Remove-ExistingADK {
-    Write-Info "Checking for existing ADK installations to remove..."
-
-    $uninstallPaths = @(
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    param(
+        [string]$AdkInstallerPath,
+        [string]$WinPeInstallerPath
     )
 
-    $adkProducts = @(
-        "*Windows Assessment and Deployment Kit*"
-        "*Windows PE*"
-        "*Deployment Tools*"
-    )
+    Write-Info "Removing any existing ADK/WinPE installations..."
 
-    $found = $false
-    foreach ($path in $uninstallPaths) {
-        $entries = Get-ItemProperty $path -ErrorAction SilentlyContinue | Where-Object {
-            $name = $_.DisplayName
-            $name -and ($adkProducts | Where-Object { $name -like $_ })
-        }
+    # Use the installers themselves to uninstall - they know how to find existing installations
+    # This is more reliable than registry detection
 
-        foreach ($entry in $entries) {
-            $found = $true
-            Write-Info "Removing: $($entry.DisplayName)"
-
-            if ($entry.BundleCachePath -and (Test-Path $entry.BundleCachePath)) {
-                # WiX bundle - use the cached installer with /uninstall
-                $proc = Start-Process -FilePath $entry.BundleCachePath -ArgumentList "/uninstall /quiet /norestart" -Wait -PassThru
-            } elseif ($entry.UninstallString) {
-                # Standard MSI or other uninstaller
-                $uninstallCmd = $entry.UninstallString
-                if ($uninstallCmd -match "msiexec") {
-                    $uninstallCmd = $uninstallCmd -replace '/I', '/X' -replace '/i', '/x'
-                    if ($uninstallCmd -notmatch '/quiet') {
-                        $uninstallCmd += " /quiet /norestart"
-                    }
-                }
-                $proc = Start-Process cmd -ArgumentList "/c $uninstallCmd" -Wait -PassThru
-            }
-        }
+    if (Test-Path $WinPeInstallerPath) {
+        Write-Info "Running WinPE add-on uninstaller..."
+        $peProc = Start-Process -FilePath $WinPeInstallerPath -ArgumentList "/uninstall /quiet /norestart" -Wait -PassThru
+        Write-Info "WinPE uninstall exit code: $($peProc.ExitCode)"
+        Start-Sleep -Seconds 5
     }
 
-    if ($found) {
-        Write-Info "Waiting for uninstall to complete..."
-        Start-Sleep -Seconds 10
-        Reset-InstallerState
-    } else {
-        Write-Info "No existing ADK installation found"
+    if (Test-Path $AdkInstallerPath) {
+        Write-Info "Running ADK uninstaller..."
+        $adkProc = Start-Process -FilePath $AdkInstallerPath -ArgumentList "/uninstall /quiet /norestart" -Wait -PassThru
+        Write-Info "ADK uninstall exit code: $($adkProc.ExitCode)"
+        Start-Sleep -Seconds 5
     }
+
+    # Also try to clean up the install directories if they exist
+    $adkPath = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Assessment and Deployment Kit"
+    if (Test-Path $adkPath) {
+        Write-Info "Cleaning up ADK directory..."
+        Remove-Item $adkPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    Reset-InstallerState
+    Write-Info "Cleanup complete"
 }
 
 function Install-ADKDirect {
     Write-Step "Installing Windows ADK 25H2 components"
-
-    # Remove any existing/partial ADK installations first (fixes error 2001)
-    Remove-ExistingADK
 
     # Reset installer state to avoid error 1000
     Reset-InstallerState
@@ -292,7 +274,7 @@ function Install-ADKDirect {
     $winPeLog = Join-Path $env:TEMP "adkwinpe_install.log"
 
     try {
-        # Download installers
+        # Download installers first
         Write-Info "Downloading ADK installer..."
         Invoke-DownloadFile -Url $AdkDownloadUrl -Destination $adkInstaller
 
@@ -306,6 +288,9 @@ function Install-ADKDirect {
         if (-not (Test-Path $winPeInstaller) -or (Get-Item $winPeInstaller).Length -lt 1MB) {
             throw "WinPE add-on installer download failed or is corrupt"
         }
+
+        # Remove any existing/partial ADK installations (fixes error 2001)
+        Remove-ExistingADK -AdkInstallerPath $adkInstaller -WinPeInstallerPath $winPeInstaller
 
         # Install ADK base - use default path, add logging, disable CEIP
         Write-Info "Installing Windows ADK (this may take several minutes)..."
