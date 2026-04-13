@@ -527,25 +527,15 @@ function Build-FromSource {
     Write-Info "Contents:"
     Get-ChildItem -Path $Path -Force | Select-Object -First 10 | ForEach-Object { Write-Info "  $($_.Name)" }
 
-    $buildLog = Join-Path $Path "build.log"
     Push-Location $Path
     try {
         Write-Info "Running: cargo build --release"
-        Write-Info "Log file: $buildLog"
 
-        # Temporarily allow stderr from native commands (cargo writes progress to stderr)
-        $origErrorAction = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
+        # Run cargo directly - no stderr redirection (breaks on Windows PowerShell)
+        cargo build --release
 
-        # Stream output to console AND capture to log file
-        & cargo build --release 2>&1 | Tee-Object -FilePath $buildLog
-
-        $buildExitCode = $LASTEXITCODE
-        $ErrorActionPreference = $origErrorAction
-
-        if ($buildExitCode -ne 0) {
-            Write-Fail "cargo build failed with exit code $buildExitCode"
-            throw "cargo build --release failed with exit code $buildExitCode - see log above"
+        if ($LASTEXITCODE -ne 0) {
+            throw "cargo build --release failed with exit code $LASTEXITCODE"
         }
 
         # Search for the built executable - path varies by target triple
