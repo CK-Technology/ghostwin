@@ -172,13 +172,7 @@ function Install-BuildTools {
     $installerPath = Join-Path $env:TEMP "vs_buildtools.exe"
     Invoke-DownloadFile -Url "https://aka.ms/vs/17/release/vs_buildtools.exe" -Destination $installerPath
 
-    $arguments = @(
-        "--quiet"
-        "--wait"
-        "--add", "Microsoft.VisualStudio.Workload.VCTools"
-        "--add", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-        "--add", "Microsoft.VisualStudio.Component.Windows11SDK.22621"
-    )
+    $arguments = "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621"
 
     $process = Start-Process -FilePath $installerPath -ArgumentList $arguments -Wait -PassThru
     Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
