@@ -19,7 +19,8 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-if (-not $PSBoundParameters.ContainsKey('PreBuilt')) {
+$explicitPrebuilt = $PSBoundParameters.ContainsKey('PreBuilt')
+if (-not $explicitPrebuilt) {
     $PreBuilt = $true
 }
 
@@ -450,8 +451,22 @@ try {
 
     $installedFromPrebuilt = $false
     if ($PreBuilt) {
-        Install-Prebuilt -Path $InstallPath
-        $installedFromPrebuilt = $true
+        try {
+            Install-Prebuilt -Path $InstallPath
+            $installedFromPrebuilt = $true
+        } catch {
+            Write-Warn "Pre-built install unavailable: $($_.Exception.Message)"
+            if ($explicitPrebuilt -and $requestedPrebuilt) {
+                throw
+            }
+
+            Write-Info "Falling back to source installation"
+            $PreBuilt = $false
+            if (-not $SkipBuild) {
+                Ensure-BuildTools
+                Ensure-Rust
+            }
+        }
     } else {
         try {
             Install-Prebuilt -Path $InstallPath
