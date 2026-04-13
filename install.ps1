@@ -494,10 +494,24 @@ function Install-SourceTree {
 
     Invoke-DownloadFile -Url (Get-SourceArchiveUrl) -Destination $zipPath
     Expand-Archive -Path $zipPath -DestinationPath $env:TEMP -Force
-    Move-Item (Join-Path $extractPath "*") $Path -Force
+
+    # Move all contents from extracted folder to install path
+    Get-ChildItem -Path $extractPath -Force | ForEach-Object {
+        Move-Item -Path $_.FullName -Destination $Path -Force
+    }
 
     Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+    # Verify source was extracted correctly
+    $cargoToml = Join-Path $Path "Cargo.toml"
+    if (-not (Test-Path $cargoToml)) {
+        Write-Fail "Source extraction failed - Cargo.toml not found at $cargoToml"
+        Write-Info "Contents of install directory:"
+        Get-ChildItem -Path $Path -Force | ForEach-Object { Write-Info "  $($_.Name)" }
+        throw "Source extraction failed - Cargo.toml not found"
+    }
+    Write-Info "Source extracted successfully"
 }
 
 function Build-FromSource {
