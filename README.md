@@ -22,7 +22,7 @@ A modern, secure, and Rust-powered Windows deployment toolkit designed for IT pr
 
 ### One-Line Install (Windows)
 ```powershell
-iwr -useb https://win.cktech.sh | iex -PreBuilt
+irm https://win.cktech.sh | iex
 ```
 
 ### Launch GUI
@@ -93,16 +93,16 @@ The installer automatically detects and installs required dependencies:
 ### Automated Installation (Recommended)
 ```powershell
 # Recommended install path
-iwr -useb https://win.cktech.sh | iex -PreBuilt
+irm https://win.cktech.sh | iex
 
 # Source build path
-iwr -useb https://win.cktech.sh | iex
+irm https://win.cktech.sh | iex -PreBuilt:$false
 
 # Quiet pre-built install
-iwr -useb https://win.cktech.sh | iex -PreBuilt -NonInteractive
+irm https://win.cktech.sh | iex -NonInteractive
 
 # Custom installation path
-iwr -useb https://win.cktech.sh | iex -PreBuilt -InstallPath "C:\Tools\GhostWin"
+irm https://win.cktech.sh | iex -InstallPath "C:\Tools\GhostWin"
 ```
 
 **🎯 Installation Features:**

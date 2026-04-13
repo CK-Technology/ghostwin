@@ -1,8 +1,8 @@
 # GhostWin Windows Installer
 # One-line usage:
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1)))
-# Example with redirect domain:
-#   & ([scriptblock]::Create((irm https://win.cktech.sh)))
+#   irm https://win.cktech.sh | iex
+# Fallback raw URL:
+#   irm https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 
 param(
     [switch]$PreBuilt,
@@ -18,6 +18,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
+
+if (-not $PSBoundParameters.ContainsKey('PreBuilt')) {
+    $PreBuilt = $true
+}
 
 function Write-Step($Message) {
     Write-Host "==> $Message" -ForegroundColor Cyan
@@ -400,14 +404,13 @@ if ($Help) {
 GhostWin Windows Installer
 
 Recommended one-liners:
-  & ([scriptblock]::Create((irm https://win.cktech.sh)))
-  & ([scriptblock]::Create((irm https://win.cktech.sh))) -PreBuilt
+  irm https://win.cktech.sh | iex
 
 Fallback GitHub raw URL:
-  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1)))
+  irm https://raw.githubusercontent.com/CK-Technology/ghostwin/main/install.ps1 | iex
 
 Options:
-  -PreBuilt        Prefer latest release binary/zip and skip source build when available
+  -PreBuilt        Prefer latest release binary/zip and skip source build when available (default)
   -SkipRust        Do not install Rust
   -SkipBuild       Download source but do not run cargo build
   -SkipADK         Do not prompt for ADK / WinPE installation
