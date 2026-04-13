@@ -514,6 +514,58 @@ function Install-SourceTree {
     Write-Info "Source extracted successfully"
 }
 
+function Get-Vs2022InstallPath {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path $vswhere)) {
+        throw "vswhere.exe not found at $vswhere"
+    }
+    $installPath = & $vswhere `
+        -latest `
+        -products * `
+        -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+        -version "[17.0,18.0)" `
+        -property installationPath
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($installPath)) {
+        throw "Visual Studio 2022 Build Tools installation was not found"
+    }
+    return $installPath.Trim()
+}
+
+function Invoke-CargoWithVcVars {
+    param(
+        [string]$ProjectPath = (Get-Location).Path,
+        [string[]]$CargoArgs = @("build", "--release")
+    )
+    $vsInstallPath = Get-Vs2022InstallPath
+    $vcvarsall = Join-Path $vsInstallPath "VC\Auxiliary\Build\vcvarsall.bat"
+    if (-not (Test-Path $vcvarsall)) {
+        throw "vcvarsall.bat not found at $vcvarsall"
+    }
+
+    Write-Info "Using VS environment from: $vcvarsall"
+
+    $tempCmd = Join-Path $env:TEMP "ghostwin-vcvars-$PID.cmd"
+    $cargoCommand = "cargo " + ($CargoArgs -join " ")
+    @"
+@echo off
+call "$vcvarsall" x64
+if errorlevel 1 exit /b %errorlevel%
+cd /d "$ProjectPath"
+$cargoCommand
+exit /b %errorlevel%
+"@ | Set-Content -Path $tempCmd -Encoding Ascii
+
+    try {
+        & cmd.exe /d /c $tempCmd
+        if ($LASTEXITCODE -ne 0) {
+            throw "Cargo build failed with exit code $LASTEXITCODE"
+        }
+    }
+    finally {
+        Remove-Item $tempCmd -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Build-FromSource {
     param([string]$Path)
 
@@ -527,33 +579,24 @@ function Build-FromSource {
     Write-Info "Contents:"
     Get-ChildItem -Path $Path -Force | Select-Object -First 10 | ForEach-Object { Write-Info "  $($_.Name)" }
 
-    Push-Location $Path
-    try {
-        Write-Info "Running: cargo build --release"
+    Write-Info "Running: cargo build --release (with VS environment)"
 
-        # Run cargo directly - no stderr redirection (breaks on Windows PowerShell)
-        cargo build --release
+    # Run cargo inside cmd.exe with vcvarsall environment - this is the reliable way
+    Invoke-CargoWithVcVars -ProjectPath $Path -CargoArgs @("build", "--release")
 
-        if ($LASTEXITCODE -ne 0) {
-            throw "cargo build --release failed with exit code $LASTEXITCODE"
-        }
+    # Search for the built executable - path varies by target triple
+    $exe = Get-ChildItem -Path (Join-Path $Path "target") -Filter "ghostwin.exe" -Recurse -ErrorAction SilentlyContinue |
+           Where-Object { $_.FullName -match "release" } |
+           Select-Object -First 1
 
-        # Search for the built executable - path varies by target triple
-        $exe = Get-ChildItem -Path ".\target" -Filter "ghostwin.exe" -Recurse -ErrorAction SilentlyContinue |
-               Where-Object { $_.FullName -match "release" } |
-               Select-Object -First 1
-
-        if (-not $exe) {
-            Write-Fail "Build completed but ghostwin.exe not found in target directory"
-            Write-Info "Target directory contents:"
-            Get-ChildItem -Path ".\target" -Recurse -Depth 2 | ForEach-Object { Write-Info "  $($_.FullName)" }
-            throw "Build completed but ghostwin.exe not found"
-        }
-
-        Write-Info "Built executable: $($exe.FullName)"
-    } finally {
-        Pop-Location
+    if (-not $exe) {
+        Write-Fail "Build completed but ghostwin.exe not found in target directory"
+        Write-Info "Target directory contents:"
+        Get-ChildItem -Path (Join-Path $Path "target") -Recurse -Depth 2 | ForEach-Object { Write-Info "  $($_.FullName)" }
+        throw "Build completed but ghostwin.exe not found"
     }
+
+    Write-Info "Built executable: $($exe.FullName)"
 }
 
 function Get-InstalledExecutable {
