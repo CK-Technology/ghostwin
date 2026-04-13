@@ -226,8 +226,62 @@ function Reset-InstallerState {
     Remove-Item "$env:TEMP\adk*.log" -Force -ErrorAction SilentlyContinue
 }
 
+function Remove-ExistingADK {
+    Write-Info "Checking for existing ADK installations to remove..."
+
+    $uninstallPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $adkProducts = @(
+        "*Windows Assessment and Deployment Kit*"
+        "*Windows PE*"
+        "*Deployment Tools*"
+    )
+
+    $found = $false
+    foreach ($path in $uninstallPaths) {
+        $entries = Get-ItemProperty $path -ErrorAction SilentlyContinue | Where-Object {
+            $name = $_.DisplayName
+            $name -and ($adkProducts | Where-Object { $name -like $_ })
+        }
+
+        foreach ($entry in $entries) {
+            $found = $true
+            Write-Info "Removing: $($entry.DisplayName)"
+
+            if ($entry.BundleCachePath -and (Test-Path $entry.BundleCachePath)) {
+                # WiX bundle - use the cached installer with /uninstall
+                $proc = Start-Process -FilePath $entry.BundleCachePath -ArgumentList "/uninstall /quiet /norestart" -Wait -PassThru
+            } elseif ($entry.UninstallString) {
+                # Standard MSI or other uninstaller
+                $uninstallCmd = $entry.UninstallString
+                if ($uninstallCmd -match "msiexec") {
+                    $uninstallCmd = $uninstallCmd -replace '/I', '/X' -replace '/i', '/x'
+                    if ($uninstallCmd -notmatch '/quiet') {
+                        $uninstallCmd += " /quiet /norestart"
+                    }
+                }
+                $proc = Start-Process cmd -ArgumentList "/c $uninstallCmd" -Wait -PassThru
+            }
+        }
+    }
+
+    if ($found) {
+        Write-Info "Waiting for uninstall to complete..."
+        Start-Sleep -Seconds 10
+        Reset-InstallerState
+    } else {
+        Write-Info "No existing ADK installation found"
+    }
+}
+
 function Install-ADKDirect {
     Write-Step "Installing Windows ADK 25H2 components"
+
+    # Remove any existing/partial ADK installations first (fixes error 2001)
+    Remove-ExistingADK
 
     # Reset installer state to avoid error 1000
     Reset-InstallerState
