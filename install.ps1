@@ -148,7 +148,18 @@ function Test-BuildToolsInstalled {
 
     try {
         $installations = & $vsWhere -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json 2>$null | ConvertFrom-Json
-        return ($installations -and $installations.Count -gt 0)
+        if (-not ($installations -and $installations.Count -gt 0)) {
+            return $false
+        }
+
+        # Also verify Windows SDK is installed (kernel32.lib required for linking)
+        $sdkLib = "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x64\kernel32.lib"
+        if (-not (Test-Path $sdkLib)) {
+            Write-Warn "Windows SDK not found - Build Tools installation incomplete"
+            return $false
+        }
+
+        return $true
     } catch {
         Write-Warn "Failed to inspect Visual Studio Build Tools: $($_.Exception.Message)"
         return $false
