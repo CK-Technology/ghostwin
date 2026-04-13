@@ -117,7 +117,7 @@ function Test-WinPeAddonInstalled {
 function Invoke-InstallerProcess {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
-        [Parameter(Mandatory = $true)][string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)][string]$ArgumentList,
         [Parameter(Mandatory = $true)][string]$DisplayName
     )
 
@@ -215,23 +215,14 @@ function Install-ADKDirect {
         Invoke-DownloadFile -Url $WinPeAddonDownloadUrl -Destination $winPeInstaller
 
         Write-Info "Target ADK install path: $AdkInstallRoot"
-        Invoke-InstallerProcess -FilePath $adkInstaller -ArgumentList @(
-            "/quiet"
-            "/norestart"
-            "/installpath"
-            $AdkInstallRoot
-            "/features"
-            "OptionId.DeploymentTools"
-        ) -DisplayName "Windows ADK $AdkPackageVersion"
+        $adkArgs = "/quiet /norestart /installpath `"$AdkInstallRoot`" /features OptionId.DeploymentTools"
+        Invoke-InstallerProcess -FilePath $adkInstaller -ArgumentList $adkArgs -DisplayName "Windows ADK $AdkPackageVersion"
 
         if (-not (Test-AdkDeploymentToolsInstalled)) {
             throw "Windows ADK Deployment Tools were not detected after installation"
         }
 
-        Invoke-InstallerProcess -FilePath $winPeInstaller -ArgumentList @(
-            "/quiet"
-            "/norestart"
-        ) -DisplayName "Windows PE add-on $AdkPackageVersion"
+        Invoke-InstallerProcess -FilePath $winPeInstaller -ArgumentList "/quiet /norestart" -DisplayName "Windows PE add-on $AdkPackageVersion"
     } finally {
         Remove-Item $adkInstaller -Force -ErrorAction SilentlyContinue
         Remove-Item $winPeInstaller -Force -ErrorAction SilentlyContinue
