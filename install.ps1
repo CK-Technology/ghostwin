@@ -23,6 +23,14 @@ $AdkPackageVersion = "10.1.26100.2454"
 $WinPeAddonPackageId = "Microsoft.WindowsADK.WinPEAddon"
 $AdkDownloadUrl = "https://go.microsoft.com/fwlink/?linkid=2289980"
 $WinPeAddonDownloadUrl = "https://go.microsoft.com/fwlink/?linkid=2289981"
+$DeploymentToolsRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Assessment and Deployment Kit\Deployment Tools"
+$WinPeAmd64Root = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64"
+
+function Pause-IfInteractive([string]$Message = "Press Enter to exit") {
+    if (-not $NonInteractive) {
+        [void](Read-Host $Message)
+    }
+}
 
 function Write-Step($Message) {
     Write-Host "==> $Message" -ForegroundColor Cyan
@@ -87,6 +95,40 @@ function Invoke-DownloadFile {
 
     Write-Info "Downloading $Url"
     Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
+}
+
+function Get-AdkOscdimgPath {
+    return Join-Path $DeploymentToolsRoot "amd64\Oscdimg\oscdimg.exe"
+}
+
+function Get-WinPeWimPath {
+    return Join-Path $WinPeAmd64Root "en-us\winpe.wim"
+}
+
+function Test-AdkDeploymentToolsInstalled {
+    return (Test-Path (Get-AdkOscdimgPath))
+}
+
+function Test-WinPeAddonInstalled {
+    return (Test-Path (Get-WinPeWimPath))
+}
+
+function Invoke-InstallerProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)][string]$DisplayName
+    )
+
+    Write-Info "Installing $DisplayName"
+    $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -Wait -PassThru
+    if (@(0, 3010) -notcontains $process.ExitCode) {
+        throw "$DisplayName installer exited with code $($process.ExitCode)"
+    }
+
+    if ($process.ExitCode -eq 3010) {
+        Write-Warn "$DisplayName installed, but Windows reported that a reboot may be required"
+    }
 }
 
 function Get-SourceArchiveUrl {
@@ -161,20 +203,35 @@ function Ensure-BuildTools {
     }
 }
 
-function Install-ADKWithWinget {
-    if (-not (Test-CommandExists "winget")) {
-        return $false
+function Install-ADKDirect {
+    Write-Step "Installing Windows ADK 25H2 components"
+
+    $adkInstaller = Join-Path $env:TEMP "adksetup.exe"
+    $winPeInstaller = Join-Path $env:TEMP "adkwinpesetup.exe"
+
+    try {
+        Invoke-DownloadFile -Url $AdkDownloadUrl -Destination $adkInstaller
+        Invoke-DownloadFile -Url $WinPeAddonDownloadUrl -Destination $winPeInstaller
+
+        Invoke-InstallerProcess -FilePath $adkInstaller -ArgumentList @(
+            "/quiet"
+            "/norestart"
+            "/features"
+            "OptionId.DeploymentTools"
+        ) -DisplayName "Windows ADK $AdkPackageVersion"
+
+        if (-not (Test-AdkDeploymentToolsInstalled)) {
+            throw "Windows ADK Deployment Tools were not detected after installation"
+        }
+
+        Invoke-InstallerProcess -FilePath $winPeInstaller -ArgumentList @(
+            "/quiet"
+            "/norestart"
+        ) -DisplayName "Windows PE add-on $AdkPackageVersion"
+    } finally {
+        Remove-Item $adkInstaller -Force -ErrorAction SilentlyContinue
+        Remove-Item $winPeInstaller -Force -ErrorAction SilentlyContinue
     }
-
-    Write-Step "Installing Windows ADK 25H2 components with winget"
-
-    winget install -e --id $AdkPackageId --version $AdkPackageVersion --silent --accept-package-agreements --accept-source-agreements
-    if ($LASTEXITCODE -ne 0) {
-        return $false
-    }
-
-    winget install -e --id $WinPeAddonPackageId --version $AdkPackageVersion --silent --accept-package-agreements --accept-source-agreements
-    return ($LASTEXITCODE -eq 0)
 }
 
 function Ensure-ADK {
@@ -183,12 +240,9 @@ function Ensure-ADK {
         return
     }
 
-    $adkRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10"
-    $winPeRoot = Join-Path $adkRoot "Assessment and Deployment Kit\Windows Preinstallation Environment"
-
     Write-Step "Checking Windows ADK and WinPE add-on"
-    $hasAdk = Test-Path $adkRoot
-    $hasWinPe = Test-Path $winPeRoot
+    $hasAdk = Test-AdkDeploymentToolsInstalled
+    $hasWinPe = Test-WinPeAddonInstalled
 
     if ($hasAdk -and $hasWinPe) {
         Write-Info "Windows ADK and WinPE add-on already installed"
@@ -201,20 +255,32 @@ function Ensure-ADK {
         return
     }
 
-    if (-not (Install-ADKWithWinget)) {
-        Write-Warn "Winget install failed or is unavailable"
+    try {
+        Install-ADKDirect
+    } catch {
+        Write-Warn "ADK/WinPE install failed"
+        Write-Fail $_.Exception.Message
         Write-Host "  Install manually if needed:" -ForegroundColor Yellow
         Write-Host "    ADK: $AdkDownloadUrl" -ForegroundColor Gray
         Write-Host "    WinPE Add-on: $WinPeAddonDownloadUrl" -ForegroundColor Gray
         if ($NonInteractive) {
-            return
+            throw "Failed to install Windows ADK and WinPE add-on"
         }
 
         if (Confirm-Choice -Prompt "Open Microsoft download pages in your browser?" -Default $true) {
             Start-Process $AdkDownloadUrl
             Start-Process $WinPeAddonDownloadUrl
         }
-        return
+        throw "Failed to install Windows ADK and WinPE add-on"
+    }
+
+    $hasAdk = Test-AdkDeploymentToolsInstalled
+    $hasWinPe = Test-WinPeAddonInstalled
+    if (-not ($hasAdk -and $hasWinPe)) {
+        Write-Host "  Manual install links:" -ForegroundColor Yellow
+        Write-Host "    ADK: $AdkDownloadUrl" -ForegroundColor Gray
+        Write-Host "    WinPE Add-on: $WinPeAddonDownloadUrl" -ForegroundColor Gray
+        throw "Windows ADK or WinPE add-on was not detected after installation"
     }
 
     Write-Info "Windows ADK install command completed"
@@ -432,5 +498,6 @@ try {
     Write-Host "  `"$executablePath`" build --source-iso C:\path\to\Windows.iso --output-dir C:\ghostwin-build --output-iso C:\ghostwin-build\ghostwin.iso --verify" -ForegroundColor Gray
 } catch {
     Write-Fail $_.Exception.Message
-    exit 1
+    Pause-IfInteractive
+    return
 }
