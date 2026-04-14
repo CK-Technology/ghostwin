@@ -53,9 +53,9 @@ ghostwin build --source-iso Windows11.iso --output-iso GhostWin.iso
 ## ✨ Key Features
 
 🎨 **Modern GUI Interface**
-- Professional dark ocean blue theme optimized for WinPE environments
-- Intuitive tool management with organized system and automation sections
-- Real-time status displays and deployment progress tracking
+- Professional dark theme optimized for WinPE environments
+- Intuitive sidebar navigation with build, install, and tools views
+- Real-time progress tracking and toast notifications
 
 🔧 **Powerful Automation**
 - One-click deployment modes: Normal and Automated installation
@@ -84,32 +84,22 @@ ghostwin build --source-iso Windows11.iso --output-iso GhostWin.iso
 ### Dependencies (Automatically Handled)
 The installer automatically detects and installs required dependencies:
 - **🔧 Visual Studio Build Tools** — Required for Windows compilation
-- **🦀 Rust Toolchain** — For building from source (skippable with `-PreBuilt`)
-- **📦 Windows ADK** — Assessment and Deployment Kit (via `winget` or manual download)
-- **🔌 Windows PE Add-on** — Preinstallation Environment support (via `winget` or manual download)
+- **🦀 Rust Toolchain** — For building from source
+- **📦 Windows ADK** — Assessment and Deployment Kit
+- **🔌 Windows PE Add-on** — Preinstallation Environment support
 
-> **💡 Tip**: The installer uses `winget` as the primary method for ADK/PE installation with automatic fallback to manual downloads if `winget` is unavailable.
+> **💡 Tip**: The installer uses `winget` when available, with automatic fallback to direct downloads.
 
 ### Automated Installation (Recommended)
 ```powershell
-# Recommended install path
 irm https://win.cktech.sh | iex
-
-# Source build path
-irm https://win.cktech.sh | iex -PreBuilt:$false
-
-# Quiet pre-built install
-irm https://win.cktech.sh | iex -NonInteractive
-
-# Custom installation path
-irm https://win.cktech.sh | iex -InstallPath "C:\Tools\GhostWin"
 ```
 
+The installer handles dependency detection, Rust installation, ADK/WinPE setup, and builds GhostWin from source.
+
 **🎯 Installation Features:**
-- 🤖 **Smart dependency detection** — Checks for all required components
-- 📦 **Winget integration** — Modern package management for ADK/PE installation
-- 🔄 **Automatic fallback** — Direct downloads if winget unavailable
-- ⚡ **Pre-built option** — Skip compilation for faster setup
+- 🤖 **Smart dependency detection** — Checks for Rust, ADK, and WinPE components
+- 📦 **Winget integration** — Uses winget for ADK/PE with fallback to direct downloads
 - 🛡️ **Error handling** — Clear guidance when issues occur
 
 ### Manual Installation
@@ -126,19 +116,19 @@ irm https://win.cktech.sh | iex -InstallPath "C:\Tools\GhostWin"
 
 ![GhostWin Screenshot](assets/ghostwin.png)
 
-The GhostWin GUI launches inside WinPE with a professional dark ocean blue theme and intuitive layout:
+The GhostWin GUI launches inside WinPE with a clean dark theme and sidebar-based navigation:
 
 **🎯 Main Features:**
-* **Installation Modes**: "Normal Install" (no modifications) and "Automated Install" (full automation)
-* **Tool Management Center**: System tools and automation scripts organized in dedicated sections
-* **VNC Remote Access**: Integrated controls with real-time connection status
-* **Professional Theme**: Deep ocean blue design optimized for deployment environments
-* **Real-time Status**: System information panel showing tool count and deployment readiness
+* **Dashboard**: Quick access to build, install, and tools with system status overview
+* **Build View**: Create custom Windows ISOs with progress tracking
+* **Install View**: Normal and Automated installation modes
+* **Tools View**: Category-filtered tool browser with one-click execution
+* **VNC Control**: Sidebar toggle with connection status
 
 **🎨 UI Framework:**
-* **Slint**: ✅ **Implemented** – native WinPE rendering, minimal dependencies, pure Rust compatible
-* Modern dark theme with professional branding
-* Responsive layout optimized for various screen resolutions
+* **Slint**: Native WinPE rendering, minimal dependencies, pure Rust
+* Dark theme with consistent spacing and typography
+* Responsive layout with compact and comfortable modes
 
 ---
 
@@ -207,7 +197,7 @@ See [**Driver Guide**](docs/guides/driver-guide.md) for driver setup details.
 ### Requirements:
 
 * Windows ADK + WinPE Add-on
-* Rust (1.78+) + `ghostwin` CLI
+* Rust (1.94+) + `ghostwin` CLI
 * Base Windows 11 ISO
 * **Storage drivers** (auto-downloaded or manual)
 
@@ -282,6 +272,7 @@ The audit scripts and WinPE functionality in GhostWin were inspired by **[Window
 - [Troubleshooting](docs/reference/troubleshooting.md)
 - [**VMD Bypass Guide**](docs/guides/vmd-bypass.md)
 - [**Driver Guide**](docs/guides/driver-guide.md)
+- [**ADK/WinPE Guide**](docs/guides/adk-winpe-guide.md)
 - [Project Docs Index](docs/project/index.md)
 
 **🌐 Online**
