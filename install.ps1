@@ -204,6 +204,63 @@ function Ensure-WindowsSdk {
     }
 }
 
+function Test-7ZipInstalled {
+    $paths = @(
+        "C:\Program Files\7-Zip\7z.exe"
+        "C:\Program Files (x86)\7-Zip\7z.exe"
+    )
+    foreach ($path in $paths) {
+        if (Test-Path $path) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Install-7Zip {
+    Write-Step "Installing 7-Zip"
+
+    # Try winget first
+    if (Test-CommandExists "winget") {
+        Write-Info "Installing 7-Zip via winget..."
+        winget install --id 7zip.7zip --silent --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -eq 0) {
+            return
+        }
+        Write-Warn "winget install failed, falling back to direct download"
+    }
+
+    # Fall back to direct download
+    $installerPath = Join-Path $env:TEMP "7z-x64.exe"
+    Invoke-DownloadFile -Url "https://www.7-zip.org/a/7z2408-x64.exe" -Destination $installerPath
+
+    $process = Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait -PassThru
+    Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+
+    if ($process.ExitCode -ne 0) {
+        throw "7-Zip installer exited with code $($process.ExitCode)"
+    }
+}
+
+function Ensure-7Zip {
+    Write-Step "Checking 7-Zip"
+    if (Test-7ZipInstalled) {
+        Write-Info "7-Zip found"
+        return
+    }
+
+    Write-Warn "7-Zip not found (required for ISO extraction)"
+    if (-not (Confirm-Choice -Prompt "Install 7-Zip now?" -Default (-not $NonInteractive))) {
+        throw "7-Zip is required. Install it manually from https://www.7-zip.org/"
+    }
+
+    Install-7Zip
+    Refresh-Path
+    if (-not (Test-7ZipInstalled)) {
+        throw "7-Zip was not detected after installation"
+    }
+}
+
 function Install-BuildTools {
     Write-Step "Installing Visual Studio Build Tools"
 
@@ -748,6 +805,7 @@ try {
     }
 
     Ensure-ADK
+    Ensure-7Zip
 
     Install-SourceTree -Path $InstallPath
     if (-not $SkipBuild) {
